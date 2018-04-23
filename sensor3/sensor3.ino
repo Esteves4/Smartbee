@@ -11,7 +11,7 @@
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
 #define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
 #define IDCOLMEIA 3                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 60000                             // Time between each reading in milliseconds  
+#define TEMPO_ENTRE_CADA_LEITURA 60000                          // Time between each reading in milliseconds  
 #define SENSOR "Sensor 3"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
 #define PORTATENSAO 5                                           // Activation pin of the voltage sensor
