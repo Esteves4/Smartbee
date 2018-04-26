@@ -14,7 +14,6 @@ Microcontroller: ........... Arduino nano
 Sensor: .................... DHT22
 RF transceiver/receiver: ... nRF24L01
 GSM Module: ................ SIM800L
-
 ```
 
 ### [Libraries](Bibliotecas)
