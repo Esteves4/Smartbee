@@ -31,36 +31,26 @@ You can find them [here](Bibliotecas).
 ### Installing
 
 The steps to get the project up and running:
-- [ ] Install the libraries
-- [ ] Install the hardware on arduino
 
-1. To install the libraries 
+1. Install the libraries 
     - Download the .zip libraries. [Here](Bibliotecas)
     - Follow this tutorial from Arduino website and go to section "Importing a .zip Library". [Here](https://www.arduino.cc/en/Guide/Libraries)
+    - ```P.S.: The SPI library is already installed with the arduino IDE```
+
+2. Install the hardware on arduino
+    2.1 Connecting DHT22 on sensor node
+    2.2 Connecting nRF24L01 on sensor node/gateway
+    2.3 Connecting gsm module on gateway
     
-```
-P.S.: The SPI library is already installed with the arduino IDE
-```
-- [x] Install the libraries
-- [ ] Install the hardware on arduino
-
-2. To install the hardware on arduino
-
 ## Running the tests
 
 Explain how to run the automated tests for this system
 
 ## Authors
 
-* **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
-
+* **Lucas Esteves Rocha** - [Esteves4](https://github.com/Esteves4)
+* **Alisson Lima Silva** - *Initial work* - [alissonlimasilva](https://github.com/alissonlimasilva)
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE.md](LICENSE.md) file for details
-
-## Acknowledgments
-
-* Hat tip to anyone who's code was used
-* Inspiration
-* etc
+This project is licensed under the MIT License - see the [LICENSE.md](LICENSE) file for details
