@@ -17,7 +17,7 @@ RF transceiver/receiver: ... nRF24L01
 GSM Module: ................ SIM800L
 ```
 
-### Libraries(Bibliotecas)
+### Libraries
 
 You can find them [here](Bibliotecas).
 ```
