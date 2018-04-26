@@ -38,9 +38,9 @@ The steps to get the project up and running:
     - ```P.S.: The SPI library is already installed with the arduino IDE```
 
 2. Install the hardware on arduino
-    2.1 Connecting DHT22 on sensor node
-    2.2 Connecting nRF24L01 on sensor node/gateway
-    2.3 Connecting gsm module on gateway
+   2.1. Connecting DHT22 on sensor node
+   2.2. Connecting nRF24L01 on sensor node/gateway
+   2.3. Connecting gsm module on gateway
     
 ## Running the tests
 
