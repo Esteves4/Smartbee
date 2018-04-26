@@ -32,15 +32,16 @@ You can find them [here](Bibliotecas).
 
 The steps to get the project up and running:
 
-1. Install the libraries 
-    - Download the .zip libraries. [Here](Bibliotecas)
-    - Follow this tutorial from Arduino website and go to section "Importing a .zip Library". [Here](https://www.arduino.cc/en/Guide/Libraries)
-    - ```P.S.: The SPI library is already installed with the arduino IDE```
+#### Step 1: Install the libraries 
 
-2. Install the hardware on arduino
-   2.1. Connecting DHT22 on sensor node
-   2.2. Connecting nRF24L01 on sensor node/gateway
-   2.3. Connecting gsm module on gateway
+    1. Download the .zip libraries. [Here](Bibliotecas)
+    2. Follow this tutorial from Arduino website and go to section "Importing a .zip Library". [Here](https://www.arduino.cc/en/Guide/Libraries)
+    3. ```P.S.: The SPI library is already installed with the arduino IDE```
+
+#### Step 2: Install the hardware on arduino
+   1. Connecting DHT22 on sensor node
+   2. Connecting nRF24L01 on sensor node/gateway
+   3. Connecting GSM module on gateway
     
 ## Running the tests
 
