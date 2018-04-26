@@ -3,12 +3,13 @@ The main objective of this project is to describe the behavior of bees in health
 
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your local machine for development and testing purposes. See deployment for notes on how to deploy the project on a live system.
+These instructions will get you a copy of the project up and running on your arduino for development and testing purposes.
 
 ### Prerequisites
 
 ```
 The Arduino IDE
+Thingspeak account
 
 Microcontroller: ........... Arduino nano
 Sensor: .................... DHT22
@@ -16,77 +17,43 @@ RF transceiver/receiver: ... nRF24L01
 GSM Module: ................ SIM800L
 ```
 
-### [Libraries](Bibliotecas)
+### Libraries(Bibliotecas)
 
+You can find them [here](Bibliotecas).
 ```
 - RF24Network
 - RF24
-- SPI
 - DHT
 - JeeLib
+- SPI
 ```
 
 ### Installing
 
-A step by step series of examples that tell you have to get a development env running
+The steps to get the project up and running:
+- [ ] Install the libraries
+- [ ] Install the hardware on arduino
 
-Say what the step will be
-
+1. To install the libraries 
+    - Download the .zip libraries. [Here](Bibliotecas)
+    - Follow this tutorial from Arduino website and go to section "Importing a .zip Library". [Here](https://www.arduino.cc/en/Guide/Libraries)
+    
 ```
-Give the example
+P.S.: The SPI library is already installed with the arduino IDE
 ```
+- [x] Install the libraries
+- [ ] Install the hardware on arduino
 
-And repeat
-
-```
-until finished
-```
-
-End with an example of getting some data out of the system or using it for a little demo
+2. To install the hardware on arduino
 
 ## Running the tests
 
 Explain how to run the automated tests for this system
 
-### Break down into end to end tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-### And coding style tests
-
-Explain what these tests test and why
-
-```
-Give an example
-```
-
-## Deployment
-
-Add additional notes about how to deploy this on a live system
-
-## Built With
-
-* [Dropwizard](http://www.dropwizard.io/1.0.2/docs/) - The web framework used
-* [Maven](https://maven.apache.org/) - Dependency Management
-* [ROME](https://rometools.github.io/rome/) - Used to generate RSS Feeds
-
-## Contributing
-
-Please read [CONTRIBUTING.md](https://gist.github.com/PurpleBooth/b24679402957c63ec426) for details on our code of conduct, and the process for submitting pull requests to us.
-
-## Versioning
-
-We use [SemVer](http://semver.org/) for versioning. For the versions available, see the [tags on this repository](https://github.com/your/project/tags). 
-
 ## Authors
 
 * **Billie Thompson** - *Initial work* - [PurpleBooth](https://github.com/PurpleBooth)
 
-See also the list of [contributors](https://github.com/your/project/contributors) who participated in this project.
 
 ## License
 
