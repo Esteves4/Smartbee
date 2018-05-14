@@ -59,6 +59,17 @@ The steps to get the project up and running:
       <img width="600" height="429" src="img/Scale_2.jpg">
    </p>
    
+   ```
+   Since we already connected the gsm module on the previous step, we'are going to focus only on the HX711 conections
+   ```
+   
+   | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
+   | ------------- | ------------- | ------------- |------------- |
+   | RED  | VCC | 5V |
+   | BLACK  | GND  | GND  |
+   | GRAY  | DT/RX  | 3 |
+   | GREEN  | SCK | 2  |
+   
    3. Mounting the Load Cells
    4. Connecting the Load Cells on HX711
    
