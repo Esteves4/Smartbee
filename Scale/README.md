@@ -19,19 +19,18 @@ GSM Module: ................ SIM800L
 
 ### Libraries
 
-You can find them [here](Bibliotecas).
+You can find it [here](Bibliotecas).
 ```
 - HX711
-
 ```
 
 ### Installing
 
 The steps to get the project up and running:
 
-#### Step 1: Install the libraries 
+#### Step 1: Install the library
 
-   1. Download the .zip libraries. [Here](Bibliotecas)
+   1. Download the .zip library. [Here](Bibliotecas)
    2. Follow this tutorial from Arduino website and go to section "Importing a .zip Library". [Here](https://www.arduino.cc/en/Guide/Libraries)
 
 #### Step 2: Install the hardware on arduino
