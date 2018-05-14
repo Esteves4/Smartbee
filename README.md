@@ -43,10 +43,6 @@ The steps to get the project up and running:
    1. Connecting DHT22 on sensor node
    2. Connecting nRF24L01 on sensor node/gateway
    3. Connecting GSM module on gateway
-    
-## Running the tests
-
-Explain how to run the automated tests for this system
 
 ## Authors
 
