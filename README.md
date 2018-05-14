@@ -3,7 +3,8 @@ The main objective of this project is to describe the behavior of bees in health
 
 ## Getting Started
 
-If you want to know how to mount the sensor nodes, go [here](Sensor/Nodes).
+If you want to know how to mount the sensor nodes, go [here]('Sensor Nodes').
+
 
 If you want to know how to mount the scale, go [here](Scale).
 
