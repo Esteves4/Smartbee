@@ -35,9 +35,10 @@ The steps to get the project up and running:
 
 #### Step 2: Install the hardware on arduino
 
-   1. Connecting HX711
-   2. Mounting the Load Cells
-   2. Connecting the Load Cells on HX711
+   1. Connecting GSM Module
+   2. Connecting HX711
+   3. Mounting the Load Cells
+   4. Connecting the Load Cells on HX711
 
 ## Authors
 
