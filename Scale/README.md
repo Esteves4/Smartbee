@@ -51,7 +51,7 @@ The steps to get the project up and running:
    4. Connecting the Load Cells on HX711
    
    <p align="center">
-      <img width="700" height="312" src="img/Scale_3.jpg">
+      <img width="800" height="356" src="img/Scale_3.jpg">
    </p>
 
 ## Authors
