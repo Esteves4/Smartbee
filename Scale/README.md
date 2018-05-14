@@ -41,10 +41,18 @@ The steps to get the project up and running:
       <img width="500" height="492" src="img/Scale_1.jpg">
    </p>
    
-   
    2. Connecting HX711
+   
+   <p align="center">
+      <img width="500" height="492" src="img/Scale_2.jpg">
+   </p>
+   
    3. Mounting the Load Cells
    4. Connecting the Load Cells on HX711
+   
+   <p align="center">
+      <img width="500" height="492" src="img/Scale_3.jpg">
+   </p>
 
 ## Authors
 
