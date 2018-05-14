@@ -60,10 +60,10 @@ The steps to get the project up and running:
    </p>
    
    ```
-   Since we already connected the gsm module on the previous step, we'are going to focus only on the HX711 conections
+   Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections
    ```
    
-   | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
+   | Wire Color  | HX711 | Arduino PIN | Notes |
    | ------------- | ------------- | ------------- |------------- |
    | RED  | VCC | 5V |
    | BLACK  | GND  | GND  |
@@ -76,6 +76,18 @@ The steps to get the project up and running:
    <p align="center">
       <img width="800" height="356" src="img/Scale_3.jpg">
    </p>
+   
+   ```
+   Again, since we already connected the HX711 and the gsm module on the previous step, 
+   we're going to focus only on the Load Cell conections
+   ```
+   
+   | Load Cell Wire Color  | HX711 PIN | Notes |
+   | ------------- | ------------- |------------- |
+   | RED  | S+/E+ | 
+   | BLACK  | S-/E-  | 
+   | WHITE  | A+  | 
+   | GREEN  | A- |
 
 ## Authors
 
