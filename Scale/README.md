@@ -40,14 +40,14 @@ The steps to get the project up and running:
    <p align="center">
       <img width="500" height="492" src="img/Scale_1.jpg">
    </p>
-   <p align="center">
-   | Wire Color  | SIM800L PIN | Arduino PIN |
-   | ------------- | ------------- | ------------- |
-   | RED  | VCC | --- |
+   
+   | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
+   | ------------- | ------------- | ------------- |------------- |
+   | RED  | VCC | --- | Read the note down below |
    | BLACK  | GND  | GND  |
    | ORANGE  | RXD  | 5 |
    | BLUE  | TXD | 4  |
-   </p>
+   
    ```
    The wires to power up the SIM800L module can't be connected on Arduino. 
    It's necessary to power up the module with a supply voltage of 3.4V - 4.4V that can handle a peak of current of 2A.
