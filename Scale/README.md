@@ -37,8 +37,10 @@ The steps to get the project up and running:
 
    1. Connecting GSM Module
    
-   ![Scale_1](img/Scale_1.jpg)
-   
+   <p align="center">
+      <img width="500" height="492" src="img/Scale_1.jpg">
+   </p>
+   
    
    2. Connecting HX711
    3. Mounting the Load Cells
