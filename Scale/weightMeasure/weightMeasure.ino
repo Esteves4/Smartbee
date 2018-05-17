@@ -1,4 +1,3 @@
-
 /*
    circuits4you.com
    2016 November 25
@@ -40,8 +39,12 @@ payload_t payload;
 
 
 //Change this calibration factor as per your load cell once it is found you many need to vary it in thousands
-float calibration_factor = -21480; //-106600 worked for my 40Kg max scale setup
-//float calibration_factor = 23000;
+float calibration_factor = -21480;             //-106600 worked for my 40Kg max scale setup
+String API_KEY = "X1H7B6RD67MHVGIZ";           // Change this value for your api-key from thingspeak
+const char* APN = "claro.com.br";              // Change this value for your network APN
+const char* USER = "claro";                    // Change this value for your network USER
+const char* PASS = "claro";                    // Change this value for your network PASS
+
 float knownWeight = 2.0;
 //=============================================================================================
 //                         SETUP
@@ -49,8 +52,8 @@ float knownWeight = 2.0;
 void setup() {
   Serial.begin(9600);
   Serial.println("Press T to tare");
-  scale.set_scale(calibration_factor);  //Calibration Factor obtained from first sketch
-  scale.tare();             //Reset the scale to 0
+  scale.set_scale(calibration_factor);                          //Calibration Factor obtained from first sketch
+  scale.tare();                                                 //Reset the scale to 0
 
   /* SIM800L (GSM) configuration */
   Serial.println("Initializing modem...");
@@ -59,11 +62,11 @@ void setup() {
   sendAT();                                                     // Send AT command to check if the GSM is responding
 
 
-#ifdef DEBUG
-  SIM800L.println("AT+CMEE=2");                                 // Send AT command to activate the verbose format of error messages
-  delay(2000);
-  gsmAnswer();
-#endif
+  #ifdef DEBUG
+    SIM800L.println("AT+CMEE=2");                                 // Send AT command to activate the verbose format of error messages
+    delay(2000);
+    gsmAnswer();
+  #endif
 }
 
 //=============================================================================================
@@ -81,11 +84,11 @@ void loop() {
   payload.peso = scale.get_units(10);
 
   Serial.print("Weight: ");
-  Serial.print(payload.peso, 3);  //Up to 3 decimal points
-  Serial.println(" kg"); //Change this to kg and re-adjust the calibration factor if you follow lbs
+  Serial.print(payload.peso, 3);                                //Up to 3 decimal points
+  Serial.println(" kg");                                        //Change this to kg and re-adjust the calibration factor if you follow lbs
 
-  configureBearerProfile("claro.com.br", "claro", "claro");// Configure the GSM network
-  sendGET_Requisition();
+  configureBearerProfile(APN, USER, PASS);     // Configure the GSM network
+  sendGET_Requisition(API_KEY);                      
   
   for (int i = 0; i < 5; i++) {
     delay(60000);
@@ -94,10 +97,10 @@ void loop() {
   {
     char temp = Serial.read();
     if (temp == 't' || temp == 'T') {
-      scale.tare();  //Reset the scale to zero
+      scale.tare();                                             //Reset the scale to zero
     }
     if (temp == 'c' || temp == 'C') {
-      calibration();  //Calibra a balança
+      calibration();                                            //Find the scale factor based on the known weight
     }
   }
 }
@@ -108,12 +111,12 @@ void calibration() {
   calibration_factor = -23000;
 
   do {
-    scale.set_scale(calibration_factor); //Adjust to this calibration factor
+    scale.set_scale(calibration_factor);                  //Adjust to this calibration factor
 
     Serial.print("Reading: ");
     result = scale.get_units(5);
     Serial.print(result, 3);
-    Serial.print(" kg"); //Change this to kg and re-adjust the calibration factor if you follow SI units like a sane person
+    Serial.print(" kg");                                  //Change this to kg and re-adjust the calibration factor if you follow SI units like a sane person
     Serial.print(" calibration_factor: ");
     Serial.print(calibration_factor);
     Serial.println();
@@ -138,7 +141,7 @@ void sendAT() {
   gsmAnswer();
 }
 
-bool sendGET_Requisition() {
+bool sendGET_Requisition(String apiKey) {
   SIM800L.println("AT+CSQ");
   delay (1000); //Tempo de espera
   gsmAnswer();
@@ -151,7 +154,7 @@ bool sendGET_Requisition() {
   delay (2000);
   gsmAnswer();
 
-  SIM800L.println("AT+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=" + String(payload.colmeia) + "&field2=" + String(payload.temperatura) + "&field3=" + String(payload.umidade) + "&field4=" + String(payload.tensao_c) + "&field5=" + String(payload.tensao_r) + "&field6=" + String(payload.peso) + "\"");
+  SIM800L.println("AT+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key="+ apiKey+ "&field1=" + String(payload.colmeia) + "&field2=" + String(payload.temperatura) + "&field3=" + String(payload.umidade) + "&field4=" + String(payload.tensao_c) + "&field5=" + String(payload.tensao_r) + "&field6=" + String(payload.peso) + "\"");
   delay (2000);
   gsmAnswer();
 
