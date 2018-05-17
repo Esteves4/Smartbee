@@ -37,7 +37,7 @@ The steps to get the project up and running:
 
    1. Connecting GSM Module
    
-         To connect the gsm module on arduino, look at the table down below, connect the wires in the respective PINs in the arduino and in the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
+         To connect the gsm module on arduino, look at the table down below, connect the wires in their respective PINs in the arduino and in the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
    
       | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
       | :-------------: | :-------------: | :-------------: | :-------------: |
@@ -56,7 +56,7 @@ The steps to get the project up and running:
  
    2. Connecting HX711
       
-      To connect the HX711 on arduino, look at the table down below, connect the wires in the respective PINs in the arduino and in the HX711. After the table there is a diagram of the connections.
+      To connect the HX711 on arduino, look at the table down below, connect the wires in their respective PINs in the arduino and in the HX711. After the table there is a diagram of the connections.
          
       >**Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
 
@@ -75,7 +75,7 @@ The steps to get the project up and running:
    3. Mounting the Load Cells
    4. Connecting the Load Cells on HX711
    
-      To connect the load cells on HX711, look at the table down below, connect the wires off the load cells in the respective PINs of the HX711. After the table there is a diagram of the connections.
+      To connect the load cells on HX711, look at the table down below, connect the wires off the load cells in their respective PINs of the HX711. After the table there is a diagram of the connections.
       >**Again, since we already connected the HX711 and the gsm module on the previous step, 
        we're going to focus only on the Load Cell conections.**
        
