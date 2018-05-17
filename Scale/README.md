@@ -37,9 +37,7 @@ The steps to get the project up and running:
 
    1. Connecting GSM Module
    
-   <p align="center">
-      <img width="500" height="492" src="img/Scale_1.jpg">
-   </p>
+   To connect the gsm module on arduino, look at the table down below, connect the wires in the respectives PINs in the arduino and in the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
    
    | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
    | :-------------: | :-------------: | :-------------: | :-------------: |
@@ -47,10 +45,17 @@ The steps to get the project up and running:
    | BLACK  | GND  | GND  |
    | ORANGE  | RXD  | 5 |
    | BLUE  | TXD | 4  |
-   
-
+      
    >**The wires to power up the SIM800L module can't be connected on Arduino. 
    >It's necessary to power up the module with a supply voltage of 3.4V - 4.4V that can handle a peak of current of 2A.**
+   
+   <p align="center">
+      <img width="500" height="492" src="img/Scale_1.jpg">
+   </p>
+   
+
+   
+
 
    
    2. Connecting HX711
