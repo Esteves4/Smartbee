@@ -60,8 +60,9 @@ The steps to get the project up and running:
          
       >**Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
 
-      | Wire Color  | HX711 | Arduino PIN | 
-      | :-------------: | :-------------: |
+
+      | Wire Color  | HX711 | Arduino PIN| 
+      | :-------------: | :-------------:|:-------------:|
       | RED  | VCC | 5V |
       | BLACK  | GND  | GND  |
       | GRAY  | DT/RX  | 3 |
