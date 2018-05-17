@@ -37,60 +37,57 @@ The steps to get the project up and running:
 
    1. Connecting GSM Module
    
-   To connect the gsm module on arduino, look at the table down below, connect the wires in the respectives PINs in the arduino and in the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
+         To connect the gsm module on arduino, look at the table down below, connect the wires in the respectives PINs in the arduino and in the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
    
-   | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
-   | :-------------: | :-------------: | :-------------: | :-------------: |
-   | RED  | VCC | --- | Read the note down below |
-   | BLACK  | GND  | GND  |
-   | ORANGE  | RXD  | 5 |
-   | BLUE  | TXD | 4  |
+      | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
+      | :-------------: | :-------------: | :-------------: | :-------------: |
+      | RED  | VCC | --- | Read the note down below |
+      | BLACK  | GND  | GND  |
+      | ORANGE  | RXD  | 5 |
+      | BLUE  | TXD | 4  |
       
-   >**The wires to power up the SIM800L module can't be connected on Arduino. 
-   >It's necessary to power up the module with a supply voltage of 3.4V - 4.4V that can handle a peak of current of 2A.**
-   
-   <p align="center">
-      <img width="500" height="492" src="img/Scale_1.jpg">
-   </p>
-   
+      >**The wires to power up the SIM800L module can't be connected on Arduino. 
+      >It's necessary to power up the module with a supply voltage of 3.4V - 4.4V that can handle a peak of current of 2A.**
 
+      <p align="center">
+         <img width="500" height="492" src="img/Scale_1.jpg">
+      </p>
    
-
-
-   
+ 
    2. Connecting HX711
-   
-   <p align="center">
-      <img width="600" height="429" src="img/Scale_2.jpg">
-   </p>
-   
-   >**Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
+      
+      To connect the HX711 on arduino, look at the table down below, connect the wires in the respectives PINs in the arduino and in the HX711. After the table there is a diagram of the connections.
+         
+      >**Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
 
+      | Wire Color  | HX711 | Arduino PIN | Notes |
+      | :-------------: | :-------------: | :-------------: | :-------------: |
+      | RED  | VCC | 5V |
+      | BLACK  | GND  | GND  |
+      | GRAY  | DT/RX  | 3 |
+      | GREEN  | SCK | 2  |
    
-   | Wire Color  | HX711 | Arduino PIN | Notes |
-   | :-------------: | :-------------: | :-------------: | :-------------: |
-   | RED  | VCC | 5V |
-   | BLACK  | GND  | GND  |
-   | GRAY  | DT/RX  | 3 |
-   | GREEN  | SCK | 2  |
-   
+      <p align="center">
+         <img width="600" height="429" src="img/Scale_2.jpg">
+      </p>
+
    3. Mounting the Load Cells
    4. Connecting the Load Cells on HX711
    
-   <p align="center">
-      <img width="800" height="356" src="img/Scale_3.jpg">
-   </p>
+      <p align="center">
+         <img width="800" height="356" src="img/Scale_3.jpg">
+      </p>
    
-   >**Again, since we already connected the HX711 and the gsm module on the previous step, 
-   we're going to focus only on the Load Cell conections.**
+      >**Again, since we already connected the HX711 and the gsm module on the previous step, 
+       we're going to focus only on the Load Cell conections.**
 
    
-   | Load Cell Wire Color  | HX711 PIN | Notes |
-   | :-------------: | :-------------: | :-------------: |
-   | RED  | S+/E+ | 
-   | BLACK  | S-/E-  | 
-   | WHITE  | A+  | 
-   | GREEN  | A- |
+      | Load Cell Wire Color  | HX711 PIN | Notes |
+      | :-------------: | :-------------: | :-------------: |
+      | RED  | S+/E+ | 
+      | BLACK  | S-/E-  | 
+      | WHITE  | A+  | 
+      | GREEN  | A- |
 
 ## Authors
 
