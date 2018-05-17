@@ -49,8 +49,8 @@ The steps to get the project up and running:
    | BLUE  | TXD | 4  |
    
 
-   >The wires to power up the SIM800L module can't be connected on Arduino. 
-   >It's necessary to power up the module with a supply voltage of 3.4V - 4.4V that can handle a peak of current of 2A.
+   >**The wires to power up the SIM800L module can't be connected on Arduino. 
+   >It's necessary to power up the module with a supply voltage of 3.4V - 4.4V that can handle a peak of current of 2A.**
 
    
    2. Connecting HX711
@@ -59,9 +59,8 @@ The steps to get the project up and running:
       <img width="600" height="429" src="img/Scale_2.jpg">
    </p>
    
-   ```
-   Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections
-   ```
+   >**Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
+
    
    | Wire Color  | HX711 | Arduino PIN | Notes |
    | :-------------: | :-------------: | :-------------: | :-------------: |
@@ -77,10 +76,9 @@ The steps to get the project up and running:
       <img width="800" height="356" src="img/Scale_3.jpg">
    </p>
    
-   ```
-   Again, since we already connected the HX711 and the gsm module on the previous step, 
-   we're going to focus only on the Load Cell conections
-   ```
+   >**Again, since we already connected the HX711 and the gsm module on the previous step, 
+   we're going to focus only on the Load Cell conections.**
+
    
    | Load Cell Wire Color  | HX711 PIN | Notes |
    | :-------------: | :-------------: | :-------------: |
@@ -92,7 +90,7 @@ The steps to get the project up and running:
 ## Authors
 
 * **Lucas Esteves Rocha** - [Esteves4](https://github.com/Esteves4)
-* **Sara Lonngren**  - (saralonngren)(https://github.com/saralonngren)
+* **Sara Lonngren**  - [saralonngren](https://github.com/saralonngren)
 
 ## License
 
