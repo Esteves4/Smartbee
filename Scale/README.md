@@ -42,7 +42,7 @@ The steps to get the project up and running:
    </p>
    
    | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
-   | ------------- | ------------- | ------------- |------------- |
+   | :-------------: | :-------------: | :-------------: | :-------------: |
    | RED  | VCC | --- | Read the note down below |
    | BLACK  | GND  | GND  |
    | ORANGE  | RXD  | 5 |
@@ -64,7 +64,7 @@ The steps to get the project up and running:
    ```
    
    | Wire Color  | HX711 | Arduino PIN | Notes |
-   | ------------- | ------------- | ------------- |------------- |
+   | :-------------: | :-------------: | :-------------: | :-------------: |
    | RED  | VCC | 5V |
    | BLACK  | GND  | GND  |
    | GRAY  | DT/RX  | 3 |
@@ -83,7 +83,7 @@ The steps to get the project up and running:
    ```
    
    | Load Cell Wire Color  | HX711 PIN | Notes |
-   | ------------- | ------------- |------------- |
+   | :-------------: | :-------------: | :-------------: |
    | RED  | S+/E+ | 
    | BLACK  | S-/E-  | 
    | WHITE  | A+  | 
@@ -92,7 +92,7 @@ The steps to get the project up and running:
 ## Authors
 
 * **Lucas Esteves Rocha** - [Esteves4](https://github.com/Esteves4)
-* **Sara Lonngren**  -
+* **Sara Lonngren**  - (saralonngren)(https://github.com/saralonngren)
 
 ## License
 
