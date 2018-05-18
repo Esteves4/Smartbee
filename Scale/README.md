@@ -95,7 +95,7 @@ The steps to get the project up and running:
 
 Before you are able to start measuring, you need to find the scale factor of the load cells that are going to be used. First, upload the *scaleFactor* sketch to your arduino, then, open the serial monitor, put some known weight over the load cells and press a,s,d,f to increase calibration factor by 10,100,1000,10000 respectively or press z,x,c,v to decrease calibration factor by 10,100,1000,10000 respectively, until you see the correct readings.
 
-Once the known weight is showed over the serial monitor, right down the scale factor found, because it's going to be used in the weightMeasure sketch.
+Once the known weight is showed over the serial monitor, write down the scale factor found, because it's going to be used in the weightMeasure sketch.
 
    >This sketch was found [here](https://circuits4you.com/2016/11/25/hx711-arduino-load-cell/)
 
