@@ -37,7 +37,7 @@ The steps to get the project up and running:
 
    1. Connecting GSM Module
    
-         To connect the gsm module on Arduino, look at the table below, connect the wires in their respective PINs in the Arduino and in the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
+         To connect the gsm module on Arduino, look at the table below, connect the wires in their respective PINs on the Arduino and on the gsm module and don't forget to read the note about powering up the gsm module. After the table there is a diagram of the connections.
    
       | Wire Color  | SIM800L PIN | Arduino PIN | Notes |
       | :-------------: | :-------------: | :-------------: | :-------------: |
@@ -58,7 +58,7 @@ The steps to get the project up and running:
       
       To connect the HX711 on Arduino, look at the table below, connect the wires in their respective PINs on the Arduino and on the HX711. After the table there is a diagram of the connections.
          
-      >**Since we already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
+      >**Since we've already connected the gsm module on the previous step, we're going to focus only on the HX711 conections.**
 
 
       | Wire Color  | HX711 | Arduino PIN| 
@@ -75,8 +75,8 @@ The steps to get the project up and running:
    3. Mounting the Load Cells
    4. Connecting the Load Cells on HX711
    
-      To connect the load cells on HX711, look at the table below, connect the wires off the load cells in their respective PINs of the HX711. After the table there is a diagram of the connections.
-      >**Again, since we already connected the HX711 and the gsm module on the previous step, 
+      To connect the load cells on HX711, look at the table below, connect the wires of the load cells in their respective PINs of the HX711. After the table there is a diagram of the connections.
+      >**Again, since we've already connected the HX711 and the gsm module on the previous step, 
        we're going to focus only on the Load Cell conections.**
        
       | Load Cell Wire Color  | HX711 PIN | 
