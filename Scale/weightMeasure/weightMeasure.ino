@@ -33,25 +33,14 @@ SoftwareSerial SIM800L(TXD, RXD);
 //INITIAL CONFIGURATION OF HX711
 HX711 scale(DOUT, CLK);
 
-//STRUCTURE OF OUR PAYLOAD
-struct payload_t {
-  int colmeia;
-  float temperatura;
-  float umidade;
-  float tensao_c;
-  float tensao_r;
-  float peso;
-};
-
 //GLOBAL VARIABLES
-payload_t payload;
+float payload_peso;
 
-float CALIBRATION_FACTOR = -21480;             // Change this value for your calibration factor found
+float SCALE_FACTOR = -21480;             // Change this value for your calibration factor found
 String API_KEY = "X1H7B6RD67MHVGIZ";           // Change this value for your api-key from thingspeak
 const char* APN = "claro.com.br";              // Change this value for your network APN
 const char* USER = "claro";                    // Change this value for your network USER
 const char* PASS = "claro";                    // Change this value for your network PASS
-
 
 ISR(WDT_vect) {
   Sleepy::watchdogEvent();
@@ -63,7 +52,7 @@ ISR(WDT_vect) {
 void setup() {
   Serial.begin(9600);
   Serial.println("Press T to tare");
-  scale.set_scale(CALIBRATION_FACTOR);                          // Calibration Factor obtained from first sketch
+  scale.set_scale(SCALE_FACTOR);                          // Calibration Factor obtained from first sketch
   scale.tare();                                                 // Reset the scale to 0
 
   /* SIM800L (GSM) configuration */
@@ -87,18 +76,15 @@ void loop() {
   delay (9000);
   gsmAnswer();
 
-  // Reset out payload
-  payload.colmeia = 2;
-  payload.temperatura = 0;
-  payload.umidade = 0;
-  payload.tensao_c = 0;
-  payload.tensao_r = 0;
-
   // Measure the weight
-  payload.peso = scale.get_units(10);
+  payload_peso = scale.get_units(10);
+  
+  if(payload_peso < 0){
+    payload_peso = 0;
+  }
 
   Serial.print("Weight: ");
-  Serial.print(payload.peso, 3);                                // Up to 3 decimal points
+  Serial.print(payload_peso, 3);                                // Up to 3 decimal points
   Serial.println(" kg");                                        // Change this to kg and re-adjust the calibration factor if you follow lbs
 
   configureBearerProfile(APN, USER, PASS);                      // Configure the GSM network
@@ -140,7 +126,7 @@ bool sendGET_Requisition(String apiKey) {
   delay (2000);
   gsmAnswer();
 
-  SIM800L.println("AT+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key="+ apiKey+ "&field1=" + String(payload.colmeia) + "&field2=" + String(payload.temperatura) + "&field3=" + String(payload.umidade) + "&field4=" + String(payload.tensao_c) + "&field5=" + String(payload.tensao_r) + "&field6=" + String(payload.peso) + "\"");
+  SIM800L.println("AT+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key="+ apiKey+ "&field1=" + String(payload_peso) + "\"");
   delay (2000);
   gsmAnswer();
 
