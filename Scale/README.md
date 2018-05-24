@@ -100,7 +100,7 @@ The steps to get the project up and running:
       
 #### Step 3: Find the scale factor
 
-Before you are able to start measuring, you need to find the scale factor of the load cells that are going to be used. First, upload the *scaleFactor* sketch to your arduino, [Here](scaleFactor), then, open the serial monitor, put some known weight over the load cells and press a,s,d,f to increase calibration factor by 10,100,1000,10000 respectively or press z,x,c,v to decrease calibration factor by 10,100,1000,10000 respectively, until you see the correct readings.
+Before you are able to start measuring, you need to find the scale factor of the load cells that are going to be used. First, upload the *scaleFactor* sketch to your arduino, [here](scaleFactor), then, open the serial monitor, put some known weight over the load cells and press a,s,d,f to increase calibration factor by 10,100,1000,10000 respectively or press z,x,c,v to decrease calibration factor by 10,100,1000,10000 respectively, until you see the correct readings.
 
 Once the known weight has been shown over the serial monitor, write down the scale factor found, because it's going to be used in the weightMeasure sketch.
 
@@ -108,7 +108,7 @@ Once the known weight has been shown over the serial monitor, write down the sca
 
 #### Step 4: Configure the weightMeasure
 
-Before you are able to start measuring, you also need to change some parameters in the weightMeausur esketch, [Here](weightMeasure). The first parameter you need to change is the *SCALE_FACTOR*, that you found in the previous step, after that you need to change the *API_KEY* for your Api-key from ThingSpeak and then update *APN*, *USER*, *PASS* for your gsm network's apn, user and pass. You can also change *TIME_READING*, it's a interger number that defines how many minutes the arduino are going to sleep before reading the weight again.
+Before you are able to start measuring, you also need to change some parameters in the weightMeausur esketch, [here](weightMeasure). The first parameter you need to change is the *SCALE_FACTOR*, that you found in the previous step, after that you need to change the *API_KEY* for your Api-key from ThingSpeak and then update *APN*, *USER*, *PASS* for your gsm network's apn, user and pass. You can also change *TIME_READING*, it's a interger number that defines how many minutes the arduino are going to sleep before reading the weight again.
 
 >The initial work of this sketch was found [here](https://circuits4you.com/2016/11/25/hx711-arduino-load-cell/) and it was modified to send the data collected over the SIM800L module
 
