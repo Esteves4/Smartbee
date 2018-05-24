@@ -1,7 +1,9 @@
 /*
-   circuits4you.com
-   2016 November 25
-   Load Cell HX711 Module Interface with Arduino to measure weight in Kgs
+   Smartbee Project
+   2018 May 24
+   Load Cell HX711 Module Interface with Arduino to measure weight in Kgs and send to a webservice
+   http://smartbee.great.ufc.br/
+   
   Arduino
   pin
   2 -> HX711 CLK
@@ -15,14 +17,21 @@
 
 #include <SoftwareSerial.h>
 #include <HX711.h>  //You must have this library in your arduino library folder
+#include <JeeLib.h>
 
 #define DOUT  3
 #define CLK  2
 
-HX711 scale(DOUT, CLK);
+#define TXD 4
+#define RXD 5
+
+#define TIME_READING 60000                             // Time between each reading in milliseconds (60000ms is the maximum supported)
 
 //INITIAL CONFIGURATION OF SIM800L
-SoftwareSerial SIM800L(4, 5);                                   // Serial Port configuration
+SoftwareSerial SIM800L(TXD, RXD);                                  
+
+//INITIAL CONFIGURATION OF HX711
+HX711 scale(DOUT, CLK);
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -37,23 +46,25 @@ struct payload_t {
 //GLOBAL VARIABLES
 payload_t payload;
 
-
-//Change this calibration factor as per your load cell once it is found you many need to vary it in thousands
-float calibration_factor = -21480;             //-106600 worked for my 40Kg max scale setup
+float CALIBRATION_FACTOR = -21480;             // Change this value for your calibration factor found
 String API_KEY = "X1H7B6RD67MHVGIZ";           // Change this value for your api-key from thingspeak
 const char* APN = "claro.com.br";              // Change this value for your network APN
 const char* USER = "claro";                    // Change this value for your network USER
 const char* PASS = "claro";                    // Change this value for your network PASS
 
-float knownWeight = 2.0;
+
+ISR(WDT_vect) {
+  Sleepy::watchdogEvent();
+}
+
 //=============================================================================================
 //                         SETUP
 //=============================================================================================
 void setup() {
   Serial.begin(9600);
   Serial.println("Press T to tare");
-  scale.set_scale(calibration_factor);                          //Calibration Factor obtained from first sketch
-  scale.tare();                                                 //Reset the scale to 0
+  scale.set_scale(CALIBRATION_FACTOR);                          // Calibration Factor obtained from first sketch
+  scale.tare();                                                 // Reset the scale to 0
 
   /* SIM800L (GSM) configuration */
   Serial.println("Initializing modem...");
@@ -61,9 +72,8 @@ void setup() {
   delay(3000);                                                  // Delays of three seconds
   sendAT();                                                     // Send AT command to check if the GSM is responding
 
-
   #ifdef DEBUG
-    SIM800L.println("AT+CMEE=2");                                 // Send AT command to activate the verbose format of error messages
+    SIM800L.println("AT+CMEE=2");                               // Send AT command to activate the verbose format of error messages
     delay(2000);
     gsmAnswer();
   #endif
@@ -76,64 +86,40 @@ void loop() {
   SIM800L.println("ATZ");                                       // Sends AT command to reset the GSM
   delay (9000);
   gsmAnswer();
+
+  // Reset out payload
   payload.colmeia = 2;
   payload.temperatura = 0;
   payload.umidade = 0;
   payload.tensao_c = 0;
   payload.tensao_r = 0;
+
+  // Measure the weight
   payload.peso = scale.get_units(10);
 
   Serial.print("Weight: ");
-  Serial.print(payload.peso, 3);                                //Up to 3 decimal points
-  Serial.println(" kg");                                        //Change this to kg and re-adjust the calibration factor if you follow lbs
+  Serial.print(payload.peso, 3);                                // Up to 3 decimal points
+  Serial.println(" kg");                                        // Change this to kg and re-adjust the calibration factor if you follow lbs
 
-  configureBearerProfile(APN, USER, PASS);     // Configure the GSM network
-  sendGET_Requisition(API_KEY);                      
+  configureBearerProfile(APN, USER, PASS);                      // Configure the GSM network
+  sendGET_Requisition(API_KEY);                                 // Sends the data to ThingSpeak
   
-  for (int i = 0; i < 5; i++) {
-    delay(60000);
+  int ok;                                                       // Local variable to know if the arduino slept the time we wanted
+  for (int i = 0; i < 5; ++i) {
+    do {
+      ok = Sleepy::loseSomeTime(TIME_READING);                  // Function to put te arduino in sleep mode
+    } while (!ok);
   }
+  
   if (Serial.available())
   {
     char temp = Serial.read();
     if (temp == 't' || temp == 'T') {
-      scale.tare();                                             //Reset the scale to zero
-    }
-    if (temp == 'c' || temp == 'C') {
-      calibration();                                            //Find the scale factor based on the known weight
+      scale.tare();                                             // Reset the scale to zero
     }
   }
 }
 //=============================================================================================
-
-void calibration() {
-  float result = 0;
-  calibration_factor = -23000;
-
-  do {
-    scale.set_scale(calibration_factor);                  //Adjust to this calibration factor
-
-    Serial.print("Reading: ");
-    result = scale.get_units(5);
-    Serial.print(result, 3);
-    Serial.print(" kg");                                  //Change this to kg and re-adjust the calibration factor if you follow SI units like a sane person
-    Serial.print(" calibration_factor: ");
-    Serial.print(calibration_factor);
-    Serial.println();
-
-    if (result > (knownWeight + 0.2 * knownWeight)) {
-      calibration_factor -= 100;
-    } else if (result < (knownWeight - 0.2 * knownWeight)) {
-      calibration_factor += 100;
-    } else if (result > (knownWeight + 0.05 * knownWeight)) {
-      calibration_factor -= 10;
-    } else {
-      calibration_factor += 10;
-    }
-
-
-  } while ((result >= (knownWeight + 0.001 * knownWeight)) || (result <= (knownWeight - 0.001 * knownWeight)));
-}
 
 void sendAT() {
   SIM800L.println("AT");
@@ -202,7 +188,6 @@ bool configureBearerProfile(const char* APN, const char* USER, const char* PASS)
   gsmAnswer();
 
 }
-
 
 void gsmAnswer() {
   while (SIM800L.available())
