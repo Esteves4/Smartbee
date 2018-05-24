@@ -108,9 +108,13 @@ Once the known weight has been shown over the serial monitor, write down the sca
 
 #### Step 4: Configure the weightMeasure
 
-Before you are able to start measuring, you also need to change some parameters in the weightMeausur esketch, [Here](weightMeasure). The first parameter you need to change is the *SCALE_FACTOR*, that you found in the previous step, after that you need to change the *API_KEY* for your Api-key from ThingSpeak and then update *APN*, *USER*, *PASS* for your gsm network's apn, user and pass.
+Before you are able to start measuring, you also need to change some parameters in the weightMeausur esketch, [Here](weightMeasure). The first parameter you need to change is the *SCALE_FACTOR*, that you found in the previous step, after that you need to change the *API_KEY* for your Api-key from ThingSpeak and then update *APN*, *USER*, *PASS* for your gsm network's apn, user and pass. You can also change *TIME_READING*, it's a interger number that defines how many minutes the arduino are going to sleep before reading the weight again.
 
 >The initial work of this sketch was found [here](https://circuits4you.com/2016/11/25/hx711-arduino-load-cell/) and it was modified to send the data collected over the SIM800L module
+
+#### Step 5: Upload weightMeasure sketch
+
+After all the necessary changes, just upload weightMeasure sketch to your arduino and start measuring weights. You can verify if the data are been sent in your ThingSpeak channel.
 
 ## Authors
 
