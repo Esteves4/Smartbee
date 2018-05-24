@@ -28,6 +28,12 @@ You can find it [here](Bibliotecas).
 ### Installing
 
 The steps to get the project up and running:
+#### Step 0: ThingSpeak account
+   1. Open your ThingSpeak accout
+   2. Create a new channel
+   3. Enable field 1, this field is going to receive the weight measured, then save the channel
+   4. Open your channel and go to 'API Keys'
+   5. Save your 'Write API Key'
 
 #### Step 1: Install the library
 
@@ -102,7 +108,7 @@ Once the known weight has been shown over the serial monitor, write down the sca
 
 #### Step 4: Configure the weightMeasure
 
-Before you are able to start measuring, you also need to change some parameters in the weightMeausur esketch, [Here](weightMeasure). The first parameter you need to change is the *calibration_factor* that you found in the previous step, after that you need to change the *API_KEY* for your Api-key from ThingSpeak and then update *APN*, *USER*, *PASS* for your gsm network's apn, user and pass.
+Before you are able to start measuring, you also need to change some parameters in the weightMeausur esketch, [Here](weightMeasure). The first parameter you need to change is the *SCALE_FACTOR*, that you found in the previous step, after that you need to change the *API_KEY* for your Api-key from ThingSpeak and then update *APN*, *USER*, *PASS* for your gsm network's apn, user and pass.
 
 >The initial work of this sketch was found [here](https://circuits4you.com/2016/11/25/hx711-arduino-load-cell/) and it was modified to send the data collected over the SIM800L module
 
