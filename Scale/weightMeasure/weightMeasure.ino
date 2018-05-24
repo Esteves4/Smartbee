@@ -25,7 +25,7 @@
 #define TXD 4
 #define RXD 5
 
-#define TIME_READING 60000                             // Time between each reading in milliseconds (60000ms is the maximum supported)
+#define TIME_READING 5                             // Time between each reading in minutes (an integer number)
 
 //INITIAL CONFIGURATION OF SIM800L
 SoftwareSerial SIM800L(TXD, RXD);                                  
@@ -91,9 +91,9 @@ void loop() {
   sendGET_Requisition(API_KEY);                                 // Sends the data to ThingSpeak
   
   int ok;                                                       // Local variable to know if the arduino slept the time we wanted
-  for (int i = 0; i < 5; ++i) {
+  for (int i = 0; i < TIME_READING; ++i) {
     do {
-      ok = Sleepy::loseSomeTime(TIME_READING);                  // Function to put te arduino in sleep mode
+      ok = Sleepy::loseSomeTime(60000);                  // Function to put te arduino in sleep mode
     } while (!ok);
   }
   
