@@ -22,6 +22,7 @@ GSM Module: ................ SIM800L
 You can find it [here](Bibliotecas).
 ```
 - HX711
+- JeeLib
 ```
 
 ### Installing
