@@ -12,13 +12,11 @@
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
 #define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
 #define IDCOLMEIA 1                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 2                             // Time between each reading in seconds  
+#define TEMPO_ENTRE_CADA_LEITURA 30                             // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
 #define PORTATENSAO 5                                           // Activation pin of the voltage sensor
 #define DEBUG
-
-#define ANTENAPIN 4
 
 DHT dht(DHTPIN, DHTTYPE);                                       // Object of the temperature sensor
 
@@ -93,11 +91,12 @@ void setup(void) {
   radio.setPayloadSize(32);                                     // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
-  attachInterrupt(0, interruptFunction, FALLING);               // Attach the pin where the interruption is going to happen
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
 
   /* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
   pinMode(PORTADHT, OUTPUT);
+  digitalWrite(PORTADHT, HIGH);
+  delay(2000);
   digitalWrite(PORTADHT, LOW);
 }
 
@@ -109,21 +108,18 @@ void loop() {
   } else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
     radio.flush_tx();
   }
-
-  delay(500);
+  
   radio.powerDown();                                           // Calls the function to power down the nRF24L01
 
   for(int i = 0; i < TEMPO_ENTRE_CADA_LEITURA; ++i){
-      LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
+      LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);          // Function to put the arduino in sleep mode
   }
 
-  attachInterrupt(0, interruptFunction, FALLING);
-
-  radio.powerUp();                                           // Calls the function to power up the nRF24L01
+  radio.powerUp();                                             // Calls the function to power up the nRF24L01
  
   /* Turn on the sensors */
   digitalWrite(PORTADHT, HIGH);
-  delay(1000);
+  delay(200);
 
   /* Performs the readings */
   lerDHT();
