@@ -31,6 +31,7 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
+  byte checksum;
 };
 
 //GLOBAL VARIABLES
@@ -154,9 +155,25 @@ void receberDados() {
     Serial.print(" ");
     //Serial.print("Tensao repetidor: ");
     Serial.println(payload.tensao_r);
+    if (payload.checksum == getCheckSum((byte*) &payload)) {
+      Serial.println("Checksum matched!");
+    } else {
+      Serial.println("Checksum didn't matched");
+    }
 #endif
 
     dataReceived = true;
   }
 
+}
+
+byte getCheckSum(byte* payload) {
+  byte payload_size = sizeof(payload_t);
+  byte sum = 0;
+
+  for (byte i = 0; i < payload_size - 1; i++) {
+    sum += payload[i];
+  }
+
+  return sum;
 }
