@@ -1,12 +1,8 @@
 #define TINY_GSM_MODEM_SIM800
 #define SerialMon Serial
 #define SerialAT Serial1
-#define TINY_GSM_DEBUG SerialMon
 
-#define TEMPOENTRECADALEITURA 20000                             // Time between each reading in milliseconds 
-#define DTR_PIN 7
-#define DEBUG
-
+#include <StreamDebugger.h>
 #include <TinyGsmClient.h>
 #include <SoftwareSerial.h>
 #include <PubSubClient.h>
@@ -20,6 +16,10 @@
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <SPI.h>
+
+#define TEMPOENTRECADALEITURA 20000                             // Time between each reading in milliseconds 
+#define DTR_PIN 7
+#define DEBUG
 
 //INITIAL CONFIGURATION OF NRF
 const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
@@ -35,29 +35,24 @@ const uint16_t ids_destino[3] = {01, 02, 03};                   // Addresses of 
 /*const char apn[]  = "claro.com.br";
 const char user[] = "claro";
 const char pass[] = "claro";*/
-
 const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
-
 SoftwareSerial SerialAT(4, 5);                                   // Serial Port configuration -(RX, TX) pins of SIM800L
 
-//INITIAL CONFIGURATION OF MQTT
-const char* broker = "200.129.43.208";
+//INITIAL CONFIGURATION OF MQTT/THINGSPEAK
+const char* broker = "host.iotp.mqtt.bluemix.com";
 
-const char* user = "teste@teste";               
-const char* pass = "123456";                    
+const char* DeviceId = "central-1"; 
+const char* ThingspeakUser = "use-token-auth";               // Can be any name.
+const char* ThingspeakPass = "KEKvrs!WDj36sgvP1a";        // Change this your MQTT API Key from Account > MyProfile.
 
-#ifdef DUMP_AT_COMMANDS
-  #include <StreamDebugger.h>
-  StreamDebugger debugger(SerialAT, SerialMon);
-  TinyGsm modem(debugger);
-#else
-  TinyGsm modem(SerialAT);
-#endif
-  TinyGsmClient client(modem);
-  PubSubClient mqtt(client);
+char* topic = "channels/419812/publish/fields/field1/X1H7B6RD67MHVGIZ";
 
+StreamDebugger debugger(SerialAT, SerialMon);
+TinyGsm modem(debugger);
+TinyGsmClient client(modem);
+PubSubClient mqtt(client);
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -66,7 +61,6 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
-  byte checksum;
 };
 
 //GLOBAL VARIABLES
@@ -98,14 +92,14 @@ void setup() {
   pinMode(DTR_PIN, OUTPUT);
   digitalWrite(DTR_PIN, LOW);
   
-  SerialMon.flush();
-  SerialMon.end();
+  Serial.flush();
+  Serial.end();
 }
 
 void loop() {
   network.update();                                            // Check the network regularly
 
-  SerialMon.begin(57600);
+  Serial.begin(57600);
 
   if (radio.rxFifoFull()) {                                     // If the RX FIFO is full, the RX FIFO is cleared
     radio.flush_rx();
@@ -113,19 +107,25 @@ void loop() {
     radio.flush_tx();
   }
 
-  SerialMon.println("Shutting SIM800L down");
+  Serial.println("Shutting SIM800L down");
   sleepGSM();
   
   
-  SerialMon.println("Shutting Arduino down");
-  SerialMon.end();
+  Serial.println("Shutting Arduino down");
+  Serial.end();
 
-  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
-  
+  //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
+  delay(15000);
+  dataReceived = true;
+    
   attachInterrupt(0, receberDados, FALLING);
 
-  SerialMon.begin(57600);
-  SerialMon.println("Arduino woke up");
+  Serial.begin(57600);
+  Serial.println("Arduino woke up");
+
+  Serial.println("Waking GSM");
+  wakeGSM();
+
 
   if (dataReceived) {
     dataReceived = false;
@@ -133,45 +133,48 @@ void loop() {
     ++ArrayCount;
   }
 
+
   if(ArrayCount == ArraySize){
-   
-    SerialMon.println("Waking GSM");
-    wakeGSM();
-    connection();
-    publicar(ArrayPayloads); 
-      
+
+    
+    for(int i = 0; i < ArraySize; ++i){
+      connection();
+      publicar(ArrayPayloads[i]); 
+    }
+    
     ArrayCount = 0;
     
   }
 
-  SerialMon.flush();
-  SerialMon.end();
+  
+  Serial.flush();
+  Serial.end();
 
 }
 
 void connection(){
-  SerialMon.println("Inicializando GSM...");
+  Serial.println("Inicializando GSM...");
   modem.restart();
  
-  SerialMon.println("Aguardando rede...");
+  Serial.println("Aguardando rede...");
   modem.waitForNetwork();
     
 
-  SerialMon.print("Conectando a ");
-  SerialMon.print(apn);
-  SerialMon.println("...");
+  Serial.print("Conectando a ");
+  Serial.print(apn);
+  Serial.println("...");
 
   modem.gprsConnect(apn, user, pass);
   mqtt.setServer(broker, 1883);
   
-  SerialMon.println("Conectando ao broker...");
+  Serial.println("Conectando ao broker...");
 
-  mqtt.connect("CentralNode", ThingspeakUser, ThingspeakPass);
+  mqtt.connect(DeviceId, ThingspeakUser, ThingspeakPass);
 }
 
 void receberDados() {
   RF24NetworkHeader header;
-  SerialMon.begin(57600);
+  Serial.begin(57600);
 
   while (!network.available()) {                              // Keeps busy-waiting until the transmission of the payload is completed
     network.update();
@@ -181,69 +184,45 @@ void receberDados() {
     network.read(header, &payload, sizeof(payload));
 
 #ifdef DEBUG
-    SerialMon.print("Received data from sensor: ");
-    SerialMon.println(payload.colmeia);
+    Serial.print("Received data from sensor: ");
+    Serial.println(payload.colmeia);
 
-    SerialMon.println("The data: ");
-    //SerialMon.print("Colmeia: ");
-    SerialMon.print(payload.colmeia);
-    SerialMon.print(" ");
-    //SerialMon.print("Temperatura: ");
-    SerialMon.print(payload.temperatura);
-    SerialMon.print(" ");
-    //SerialMon.print("Umidade: ");
-    SerialMon.print(payload.umidade);
-    SerialMon.print(" ");
-    //SerialMon.print("Tensao sensor: ");
-    SerialMon.print(payload.tensao_c);
-    SerialMon.print(" ");
-    //SerialMon.print("Tensao repetidor: ");
-    SerialMon.println(payload.tensao_r);
-    if (payload.checksum == getCheckSum((byte*) &payload)) {
-      SerialMon.println("Checksum matched!");
-    } else {
-      SerialMon.println("Checksum didn't match!");
-    }
+    Serial.println("The data: ");
+    //Serial.print("Colmeia: ");
+    Serial.print(payload.colmeia);
+    Serial.print(" ");
+    //Serial.print("Temperatura: ");
+    Serial.print(payload.temperatura);
+    Serial.print(" ");
+    //Serial.print("Umidade: ");
+    Serial.print(payload.umidade);
+    Serial.print(" ");
+    //Serial.print("Tensao sensor: ");
+    Serial.print(payload.tensao_c);
+    Serial.print(" ");
+    //Serial.print("Tensao repetidor: ");
+    Serial.println(payload.tensao_r);
 #endif
 
-  SerialMon.flush();
-  SerialMon.end();
+  Serial.flush();
+  Serial.end();
 
     dataReceived = true;
   }
 
 }
 
-byte getCheckSum(byte* payload) {
-  byte payload_size = sizeof(payload_t);
-  byte sum = 0;
-
-  for (byte i = 0; i < payload_size - 1; i++) {
-    sum += payload[i];
-  }
-
-  return sum;
-}
 
 void lerTensaoGSM()
 {
    payload.tensao_r = modem.getBattVoltage()/1000.0;
 }
 
-void publicar(payload_t[] DataOut){
-  String publishingMsg = "field1=" + String(DataOut.colmeia, DEC) + "&field2=" + String(DataOut.temperatura, DEC) + "&field3=" + String(DataOut.umidade, DEC) + "&field4=" + String(DataOut.tensao_c, DEC) + "&field5=" + String(DataOut.tensao_r, DEC);
-  String topicString = "channels/" + String( ChannelID ) + "/publish/"+String(WriteApiKey);
+void publicar(payload_t DataOut){
+  //String publishingMsg = "field1=" + String(DataOut.colmeia, DEC) + "&field2=" + String(DataOut.temperatura, DEC) + "&field3=" + String(DataOut.umidade, DEC) + "&field4=" + String(DataOut.tensao_c, DEC) + "&field5=" + String(DataOut.tensao_r, DEC) + "&status=MQTTPUBLISH";
 
-  int length = publishingMsg.length();
-  char msgBuffer[length];
-  publishingMsg.toCharArray(msgBuffer,length+1);
-
-  length = topicString.length();
-  char topicBuffer[length];
-  topicString.toCharArray(topicBuffer,length+1);
-  
-  mqtt.publish(topicBuffer, msgBuffer);
-  SerialMon.println("Erro: " + mqtt.state());
+  mqtt.publish(topic, "5");
+  Serial.println("Erro: " + mqtt.state());
 
 }
 

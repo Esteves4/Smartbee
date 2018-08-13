@@ -1,11 +1,6 @@
 #define TINY_GSM_MODEM_SIM800
-#define SerialMon Serial
-#define SerialAT Serial1
-#define TINY_GSM_DEBUG SerialMon
-
-#define TEMPOENTRECADALEITURA 20000                             // Time between each reading in milliseconds 
-#define DTR_PIN 7
-#define DEBUG
+#define Timeout 10000
+#define Timeout_envios 20000
 
 #include <TinyGsmClient.h>
 #include <SoftwareSerial.h>
@@ -21,6 +16,9 @@
 #include <RF24.h>
 #include <SPI.h>
 
+#define DTR_PIN 7
+#define DEBUG
+
 //INITIAL CONFIGURATION OF NRF
 const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
 const int pinCSN = 9;                                           // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
@@ -29,35 +27,25 @@ RF24 radio(pinCE, pinCSN);                                      // Declare objec
 RF24Network network(radio);                                     // Network uses that radio
 
 const uint16_t id_origem = 00;                                  // Address of this node
-const uint16_t ids_destino[3] = {01, 02, 03};                   // Addresses of the others nodes
 
 //INITIAL CONFIGURATION OF SIM800
-/*const char apn[]  = "claro.com.br";
-const char user[] = "claro";
-const char pass[] = "claro";*/
-
 const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
+SoftwareSerial SIM800L(4, 5);                                   // Serial Port configuration -(RX, TX) pins of SIM800L
 
-SoftwareSerial SerialAT(4, 5);                                   // Serial Port configuration -(RX, TX) pins of SIM800L
+//INITIAL CONFIGURATION OF MQTT/THINGSPEAK
+const char* broker = "mqtt.thingspeak.com";
 
-//INITIAL CONFIGURATION OF MQTT
-const char* broker = "200.129.43.208";
+const char* ThingspeakUser = "esteves4";                // Can be any name.
+const char* ThingspeakPass = "FWZ6OTXMYGXC5GKW";        // Change this your MQTT API Key from Account > MyProfile.
+const char* WriteApiKey = "X1H7B6RD67MHVGIZ";           // Change to your channel Write API Key.
 
-const char* user = "teste@teste";               
-const char* pass = "123456";                    
+long ChannelID = 419812;
 
-#ifdef DUMP_AT_COMMANDS
-  #include <StreamDebugger.h>
-  StreamDebugger debugger(SerialAT, SerialMon);
-  TinyGsm modem(debugger);
-#else
-  TinyGsm modem(SerialAT);
-#endif
-  TinyGsmClient client(modem);
-  PubSubClient mqtt(client);
-
+TinyGsm modem(SIM800L);
+TinyGsmClient client(modem);
+PubSubClient mqtt(client);
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -66,7 +54,6 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
-  byte checksum;
 };
 
 //GLOBAL VARIABLES
@@ -76,14 +63,78 @@ payload_t ArrayPayloads[ArraySize];
 payload_t payload;                                              // Used to store the payload from the sensor node
 
 bool dataReceived;                                              // Used to know whether a payload was received or not
+int resetCooldown = 1;                                          // Cooldown de tentativas de conexão, que, caso ultrapassado um certo valor, força o reset do Sim800L
+int connection_retry = 0;                                       // Quantidade de tentativas de reconexão
+
+void connection() //Função que tenta realizar todas as etapas da conexão com o broker MQTT
+//Se em qualquer etapa a conexão falhar > 3 vezes, código para de tentar realizar tentativas de conexão
+//Para que force, mais na frente no código, o reset do Sim800L
+{
+  Serial.println("Inicializando GSM...");
+  modem.restart();
+  Serial.println("Ok");
+
+  Serial.println("Aguardando rede...");
+  while (!modem.waitForNetwork())
+  {
+    connection_retry++;
+    Serial.println("Sem acesso a rede...");
+    Serial.print("Tentando novamente em ");
+    Serial.print("Número de tentativas - ");
+    Serial.println(connection_retry);
+    if (connection_retry >= 3)
+    {
+      Serial.println("Falha.");
+      break;
+    }
+    Serial.println("Sucesso.");
+    delay(Timeout);
+  }
+  connection_retry = 0;
+  
+
+  Serial.print("Conectando a ");
+  Serial.print(apn);
+  Serial.println("...");
+  while (!modem.gprsConnect(apn, user, pass))
+  {
+    connection_retry++;
+    Serial.println("Tentando reconectar a APN...");
+    Serial.print("Número de tentativas - ");
+    Serial.println(connection_retry);
+    if (connection_retry >= 3)
+    {
+      break;
+    }
+    delay(Timeout);
+  }
+  connection_retry = 0;
+  Serial.println("Sucesso.");
+
+  mqtt.setServer(broker, 1883);
+  Serial.println("Conectando ao broker...");
+  while (!mqtt.connect("CentralNode", ThingspeakUser, ThingspeakPass))
+  {
+    connection_retry++;
+    Serial.println("Tentando reconectar ao broker...");
+    Serial.print("Número de tentativas - ");
+    Serial.println(connection_retry);
+    if (connection_retry >= 3)
+    {
+      break;
+    }
+    delay(Timeout);
+  }
+  connection_retry = 0;
+  Serial.print("Sucesso.");
+}
 
 void setup() {  
-  SerialMon.begin(57600);                                           // Start Serial communication
-  delay(10);
-
-  SerialAT.begin(57600);
+  Serial.begin(57600);                                           // Start Serial communication
+  
+  SIM800L.begin(57600);
   delay(3000);
-    
+  
   /* nRF24L01 configuration*/
   Serial.println("Initializing nRF24L01...");
   SPI.begin();                                                  // Start SPI protocol
@@ -98,34 +149,35 @@ void setup() {
   pinMode(DTR_PIN, OUTPUT);
   digitalWrite(DTR_PIN, LOW);
   
-  SerialMon.flush();
-  SerialMon.end();
+  Serial.flush();
+  Serial.end();
 }
 
 void loop() {
   network.update();                                            // Check the network regularly
 
-  SerialMon.begin(57600);
+  Serial.begin(57600); 
 
   if (radio.rxFifoFull()) {                                     // If the RX FIFO is full, the RX FIFO is cleared
     radio.flush_rx();
   } else if (radio.txFifoFull()) {                              // If the TX FIFO is full, the TX FIFO is cleared
     radio.flush_tx();
   }
-
-  SerialMon.println("Shutting SIM800L down");
+  Serial.println("Shutting SIM800L down");
   sleepGSM();
   
-  
-  SerialMon.println("Shutting Arduino down");
-  SerialMon.end();
+  Serial.println("Shutting Arduino down");
+  Serial.end();
 
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
   
   attachInterrupt(0, receberDados, FALLING);
 
-  SerialMon.begin(57600);
-  SerialMon.println("Arduino woke up");
+  Serial.begin(57600);
+  Serial.println("Arduino woke up");
+
+  Serial.println("Waking GSM");
+  wakeGSM();
 
   if (dataReceived) {
     dataReceived = false;
@@ -134,44 +186,26 @@ void loop() {
   }
 
   if(ArrayCount == ArraySize){
-   
-    SerialMon.println("Waking GSM");
-    wakeGSM();
-    connection();
-    publicar(ArrayPayloads); 
-      
-    ArrayCount = 0;
+    detachInterrupt(0);
     
-  }
-
-  SerialMon.flush();
-  SerialMon.end();
-
-}
-
-void connection(){
-  SerialMon.println("Inicializando GSM...");
-  modem.restart();
+    for(int i = 0; i < ArraySize; ++i){
+      connection();
+      publicar(ArrayPayloads[i]); 
+    }
  
-  SerialMon.println("Aguardando rede...");
-  modem.waitForNetwork();
-    
+    ArrayCount = 0;
 
-  SerialMon.print("Conectando a ");
-  SerialMon.print(apn);
-  SerialMon.println("...");
-
-  modem.gprsConnect(apn, user, pass);
-  mqtt.setServer(broker, 1883);
+    attachInterrupt(0, receberDados, FALLING);
+  }
   
-  SerialMon.println("Conectando ao broker...");
+  Serial.flush();
+  Serial.end();
 
-  mqtt.connect("CentralNode", ThingspeakUser, ThingspeakPass);
 }
 
 void receberDados() {
   RF24NetworkHeader header;
-  SerialMon.begin(57600);
+  Serial.begin(57600);
 
   while (!network.available()) {                              // Keeps busy-waiting until the transmission of the payload is completed
     network.update();
@@ -180,49 +214,18 @@ void receberDados() {
   while (network.available()) {                               // Reads the payload received
     network.read(header, &payload, sizeof(payload));
 
-#ifdef DEBUG
-    SerialMon.print("Received data from sensor: ");
-    SerialMon.println(payload.colmeia);
+  lerTensaoGSM();
+  
+  #ifdef DEBUG
+    printData(payload);
+  #endif
 
-    SerialMon.println("The data: ");
-    //SerialMon.print("Colmeia: ");
-    SerialMon.print(payload.colmeia);
-    SerialMon.print(" ");
-    //SerialMon.print("Temperatura: ");
-    SerialMon.print(payload.temperatura);
-    SerialMon.print(" ");
-    //SerialMon.print("Umidade: ");
-    SerialMon.print(payload.umidade);
-    SerialMon.print(" ");
-    //SerialMon.print("Tensao sensor: ");
-    SerialMon.print(payload.tensao_c);
-    SerialMon.print(" ");
-    //SerialMon.print("Tensao repetidor: ");
-    SerialMon.println(payload.tensao_r);
-    if (payload.checksum == getCheckSum((byte*) &payload)) {
-      SerialMon.println("Checksum matched!");
-    } else {
-      SerialMon.println("Checksum didn't match!");
-    }
-#endif
-
-  SerialMon.flush();
-  SerialMon.end();
+  Serial.flush();
+  Serial.end();
 
     dataReceived = true;
   }
 
-}
-
-byte getCheckSum(byte* payload) {
-  byte payload_size = sizeof(payload_t);
-  byte sum = 0;
-
-  for (byte i = 0; i < payload_size - 1; i++) {
-    sum += payload[i];
-  }
-
-  return sum;
 }
 
 void lerTensaoGSM()
@@ -230,8 +233,8 @@ void lerTensaoGSM()
    payload.tensao_r = modem.getBattVoltage()/1000.0;
 }
 
-void publicar(payload_t[] DataOut){
-  String publishingMsg = "field1=" + String(DataOut.colmeia, DEC) + "&field2=" + String(DataOut.temperatura, DEC) + "&field3=" + String(DataOut.umidade, DEC) + "&field4=" + String(DataOut.tensao_c, DEC) + "&field5=" + String(DataOut.tensao_r, DEC);
+void publicar(payload_t DataOut){
+  String publishingMsg = "field1=" + String(DataOut.colmeia) + "&field2=" + String(DataOut.temperatura) + "&field3=" + String(DataOut.umidade) + "&field4=" + String(DataOut.tensao_c) + "&field5=" + String(DataOut.tensao_r);
   String topicString = "channels/" + String( ChannelID ) + "/publish/"+String(WriteApiKey);
 
   int length = publishingMsg.length();
@@ -243,8 +246,6 @@ void publicar(payload_t[] DataOut){
   topicString.toCharArray(topicBuffer,length+1);
   
   mqtt.publish(topicBuffer, msgBuffer);
-  SerialMon.println("Erro: " + mqtt.state());
-
 }
 
 void sleepGSM() {
@@ -252,13 +253,29 @@ void sleepGSM() {
 
   digitalWrite(DTR_PIN, HIGH);                                // Puts DTR pin in HIGH mode so we can enter in sleep mode
   modem.sleepEnable(true);
-
 }
 
 void wakeGSM() {  
   digitalWrite(DTR_PIN, LOW);                                // Puts DTR pin in LOW mode so we can exit the sleep mode
   
   modem.sleepEnable(false);
- 
 }
+
+void printData(payload_t data){
+    Serial.print("Received data from sensor: ");
+    Serial.println(data.colmeia);
+
+    Serial.println("The data: ");
+    Serial.print(data.colmeia);
+    Serial.print(" ");
+    Serial.print(data.temperatura);
+    Serial.print(" ");
+    Serial.print(data.umidade);
+    Serial.print(" ");
+    Serial.print(data.tensao_c);
+    Serial.print(" ");
+    Serial.println(data.tensao_r);
+}
+
+
 
