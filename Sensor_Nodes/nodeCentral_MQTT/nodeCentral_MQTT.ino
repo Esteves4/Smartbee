@@ -2,10 +2,11 @@
 #define SerialMon Serial
 #define SerialAT Serial1
 #define TINY_GSM_DEBUG SerialMon
+#define DUMP_AT_COMMANDS
+#define DEBUG
 
 #define TEMPOENTRECADALEITURA 20000                             // Time between each reading in milliseconds 
 #define DTR_PIN 7
-#define DEBUG
 
 #include <TinyGsmClient.h>
 #include <SoftwareSerial.h>
@@ -44,9 +45,10 @@ SoftwareSerial SerialAT(4, 5);                                   // Serial Port 
 
 //INITIAL CONFIGURATION OF MQTT
 const char* broker = "200.129.43.208";
+const char* user_MQTT = "teste@teste";               
+const char* pass_MQTT = "123456";
 
-const char* user = "teste@teste";               
-const char* pass = "123456";                    
+String topic = "sensors/coleta";            
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -57,7 +59,6 @@ const char* pass = "123456";
 #endif
   TinyGsmClient client(modem);
   PubSubClient mqtt(client);
-
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -71,21 +72,50 @@ struct payload_t {
 
 //GLOBAL VARIABLES
 const uint8_t ArraySize = 1;
-uint8_t ArrayCount = 0;
 payload_t ArrayPayloads[ArraySize];
+uint8_t ArrayCount = 0;
 payload_t payload;                                              // Used to store the payload from the sensor node
 
 bool dataReceived;                                              // Used to know whether a payload was received or not
 
 void setup() {  
-  SerialMon.begin(57600);                                           // Start Serial communication
-  delay(10);
 
-  SerialAT.begin(57600);
-  delay(3000);
+
+  /* SIM800L configuration */
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+    delay(10);
+    
+    SerialMon.println(F("Initializing SIM800L and Configuring..."));
+    SerialAT.begin(57600);
+    delay(3000);
+
+    pinMode(DTR_PIN, OUTPUT);
+    digitalWrite(DTR_PIN, LOW);
+    
+    SerialMon.println(F("Shutting SIM800L down"));
+    sleepGSM();
+    SerialMon.flush();
+    SerialMon.end();
+  #else
+    SerialAT.begin(57600);
+    delay(3000);
+    
+    pinMode(DTR_PIN, OUTPUT);
+    digitalWrite(DTR_PIN, LOW);
+    
+    sleepGSM();
+  #endif
     
   /* nRF24L01 configuration*/
-  Serial.println("Initializing nRF24L01...");
+  #ifdef DEBUG
+    SerialMon.begin(57600);                                           // Start Serial communication
+    
+    SerialMon.println(F("Initializing nRF24L01..."));
+    SerialMon.flush();
+    SerialMon.end();
+  #endif
+  
   SPI.begin();                                                  // Start SPI protocol
   radio.begin();                                                // Start nRF24L01
   radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
@@ -94,122 +124,139 @@ void setup() {
   radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
   attachInterrupt(0, receberDados, FALLING);                    // Attach the pin where the interruption is going to happen
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
-
-  pinMode(DTR_PIN, OUTPUT);
-  digitalWrite(DTR_PIN, LOW);
-  
-  SerialMon.flush();
-  SerialMon.end();
 }
 
 void loop() {
   network.update();                                            // Check the network regularly
 
-  SerialMon.begin(57600);
-
-  if (radio.rxFifoFull()) {                                     // If the RX FIFO is full, the RX FIFO is cleared
-    radio.flush_rx();
+  if (radio.rxFifoFull()) {                                     // If the RX FIFO is full calls the fuctions to receive the three packages in the FIFO 
+    for(int i = 0 ;i < 3; ++i){
+      receberDados();
+      salvarPayload();
+    }
   } else if (radio.txFifoFull()) {                              // If the TX FIFO is full, the TX FIFO is cleared
     radio.flush_tx();
   }
 
-  SerialMon.println("Shutting SIM800L down");
-  sleepGSM();
+  #ifdef DEBUG
+      SerialMon.begin(57600);
+      SerialMon.println(F("Shutting Arduino down"));
+      SerialMon.flush();
+      SerialMon.end();
+  #endif
   
-  
-  SerialMon.println("Shutting Arduino down");
-  SerialMon.end();
-
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
   
   attachInterrupt(0, receberDados, FALLING);
 
-  SerialMon.begin(57600);
-  SerialMon.println("Arduino woke up");
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+    SerialMon.println(F("Arduino woke up"));
+    SerialMon.flush();
+    SerialMon.end();
+  #endif
 
   if (dataReceived) {
-    dataReceived = false;
-    ArrayPayloads[ArrayCount] = payload;
-    ++ArrayCount;
+    salvarPayload();
   }
-
-  if(ArrayCount == ArraySize){
-   
-    SerialMon.println("Waking GSM");
-    wakeGSM();
-    connection();
-    publicar(ArrayPayloads); 
-      
-    ArrayCount = 0;
-    
-  }
-
-  SerialMon.flush();
-  SerialMon.end();
 
 }
 
-void connection(){
-  SerialMon.println("Inicializando GSM...");
-  modem.restart();
- 
-  SerialMon.println("Aguardando rede...");
-  modem.waitForNetwork();
+void salvarPayload(){
+  dataReceived = false;
+  ArrayPayloads[ArrayCount] = payload;
+  ++ArrayCount;
+
+  if(ArrayCount == ArraySize){
     
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+      SerialMon.println(F("Waking GSM"));
+      SerialMon.flush();
+      SerialMon.end();
+    #endif
+    
+    wakeGSM();
+    connection();
+    
+    publicar(topic,getJson()); 
+      
+    ArrayCount = 0;
+  }
+}
 
-  SerialMon.print("Conectando a ");
-  SerialMon.print(apn);
-  SerialMon.println("...");
-
-  modem.gprsConnect(apn, user, pass);
-  mqtt.setServer(broker, 1883);
+void connection(){
+  #ifdef DEBUG
+    SerialMon.println(F("Inicializando GSM..."));
+    modem.restart();
+   
+    SerialMon.println(F("Aguardando rede..."));
+    modem.waitForNetwork();
+      
   
-  SerialMon.println("Conectando ao broker...");
-
-  mqtt.connect("CentralNode", ThingspeakUser, ThingspeakPass);
+    SerialMon.print(F("Conectando a "));
+    SerialMon.print(apn);
+    SerialMon.println("...");
+  
+    modem.gprsConnect(apn, user, pass);
+    mqtt.setServer(broker, 1883);
+    
+    SerialMon.println(F("Conectando ao broker..."));
+    mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
+    
+  #else
+    modem.restart();
+    modem.waitForNetwork();
+    modem.gprsConnect(apn, user, pass);
+    mqtt.setServer(broker, 1883);
+    mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
+  #endif
 }
 
 void receberDados() {
   RF24NetworkHeader header;
-  SerialMon.begin(57600);
-
+  
   while (!network.available()) {                              // Keeps busy-waiting until the transmission of the payload is completed
     network.update();
   }
 
   while (network.available()) {                               // Reads the payload received
     network.read(header, &payload, sizeof(payload));
+    
+    bool checksum_OK = payload.checksum == getCheckSum((byte*) &payload);
 
-#ifdef DEBUG
-    SerialMon.print("Received data from sensor: ");
-    SerialMon.println(payload.colmeia);
-
-    SerialMon.println("The data: ");
-    //SerialMon.print("Colmeia: ");
-    SerialMon.print(payload.colmeia);
-    SerialMon.print(" ");
-    //SerialMon.print("Temperatura: ");
-    SerialMon.print(payload.temperatura);
-    SerialMon.print(" ");
-    //SerialMon.print("Umidade: ");
-    SerialMon.print(payload.umidade);
-    SerialMon.print(" ");
-    //SerialMon.print("Tensao sensor: ");
-    SerialMon.print(payload.tensao_c);
-    SerialMon.print(" ");
-    //SerialMon.print("Tensao repetidor: ");
-    SerialMon.println(payload.tensao_r);
-    if (payload.checksum == getCheckSum((byte*) &payload)) {
-      SerialMon.println("Checksum matched!");
-    } else {
-      SerialMon.println("Checksum didn't match!");
+    if(!checksum_OK){
+      //Pessquisar função que retorna o endereço de quem enviou a mensagem e solicita reenvio
+      dataReceived = false;
+    }else{
+      dataReceived = true;
     }
-#endif
-
-  SerialMon.flush();
-  SerialMon.end();
-
-    dataReceived = true;
+    
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+      SerialMon.print(F("Received data from sensor: "));
+      SerialMon.println(payload.colmeia);
+  
+      SerialMon.println(F("The data: "));
+      SerialMon.print(payload.colmeia);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.temperatura);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.umidade);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.tensao_c);
+      SerialMon.print(F(" "));
+      SerialMon.println(payload.tensao_r);
+      
+      if (checksum_OK) {
+        SerialMon.println(F("Checksum matched!"));
+      } else {
+        SerialMon.println(F("Checksum didn't match!"));
+      }
+      SerialMon.flush();
+      SerialMon.end();
+    #endif
+    
   }
 
 }
@@ -230,35 +277,43 @@ void lerTensaoGSM()
    payload.tensao_r = modem.getBattVoltage()/1000.0;
 }
 
-void publicar(payload_t[] DataOut){
-  String publishingMsg = "field1=" + String(DataOut.colmeia, DEC) + "&field2=" + String(DataOut.temperatura, DEC) + "&field3=" + String(DataOut.umidade, DEC) + "&field4=" + String(DataOut.tensao_c, DEC) + "&field5=" + String(DataOut.tensao_r, DEC);
-  String topicString = "channels/" + String( ChannelID ) + "/publish/"+String(WriteApiKey);
+String getJson(){
+  String publishingMsg = "{\"coletas\":[";
+  
+  for(int i = 0; i < ArraySize; ++i){
+    publishingMsg += "{ \"colmeia\":" +  String(ArrayPayloads[i].colmeia) + ",\"temperatura\":" + String(ArrayPayloads[i].temperatura) + ",\"umidade\":" + String(ArrayPayloads[i].umidade) + ",\"tensao_c\":" + String(ArrayPayloads[i].tensao_c) + ",\"tensao_r\":" + String(ArrayPayloads[i].tensao_r) + "}";
+    
+    if(i != 0 && i < ArraySize-1){
+      publishingMsg += ",";
+    }
+    
+  }
+  
+  publishingMsg += "]}";
+  
+  return publishingMsg;
+}
 
-  int length = publishingMsg.length();
+void publicar(String topicString, String msgJson){
+  int length = msgJson.length();
   char msgBuffer[length];
-  publishingMsg.toCharArray(msgBuffer,length+1);
+  msgJson.toCharArray(msgBuffer,length+1);
 
   length = topicString.length();
   char topicBuffer[length];
   topicString.toCharArray(topicBuffer,length+1);
   
   mqtt.publish(topicBuffer, msgBuffer);
-  SerialMon.println("Erro: " + mqtt.state());
-
 }
 
 void sleepGSM() {
   modem.radioOff();
-
   digitalWrite(DTR_PIN, HIGH);                                // Puts DTR pin in HIGH mode so we can enter in sleep mode
   modem.sleepEnable(true);
-
 }
 
 void wakeGSM() {  
   digitalWrite(DTR_PIN, LOW);                                // Puts DTR pin in LOW mode so we can exit the sleep mode
-  
   modem.sleepEnable(false);
- 
 }
 
