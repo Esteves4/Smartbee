@@ -71,7 +71,7 @@ struct payload_t {
 };
 
 //GLOBAL VARIABLES
-const uint8_t ArraySize = 1;
+const uint8_t ArraySize = 2;
 payload_t ArrayPayloads[ArraySize];
 uint8_t ArrayCount = 0;
 payload_t payload;                                              // Used to store the payload from the sensor node
@@ -158,6 +158,32 @@ void loop() {
 
   if (dataReceived) {
     salvarPayload();
+
+    if(ArrayCount == ArraySize){
+      #ifdef DEBUG
+        SerialMon.begin(57600);
+        SerialMon.println(F("Waking GSM"));
+        wakeGSM();
+        SerialMon.println(F("Conectando..."));
+        connection();
+        SerialMon.println(F("Publicando..."));
+        String msg;
+        getJson(&msg);
+        SerialMon.println(msg);
+        publicar(topic,msg); 
+        SerialMon.flush();
+        SerialMon.end();
+      #else
+        wakeGSM();
+        connection();
+        String msg;
+        getJson(&msg);
+        
+        publicar(topic,msg); 
+      #endif
+      
+      ArrayCount = 0;
+    }
   }
 
 }
@@ -167,22 +193,6 @@ void salvarPayload(){
   ArrayPayloads[ArrayCount] = payload;
   ++ArrayCount;
 
-  if(ArrayCount == ArraySize){
-    
-    #ifdef DEBUG
-      SerialMon.begin(57600);
-      SerialMon.println(F("Waking GSM"));
-      SerialMon.flush();
-      SerialMon.end();
-    #endif
-    
-    wakeGSM();
-    connection();
-    
-    publicar(topic,getJson()); 
-      
-    ArrayCount = 0;
-  }
 }
 
 void connection(){
@@ -225,13 +235,13 @@ void receberDados() {
     
     bool checksum_OK = payload.checksum == getCheckSum((byte*) &payload);
 
-    if(!checksum_OK){
+    /*if(!checksum_OK){
       //Pessquisar função que retorna o endereço de quem enviou a mensagem e solicita reenvio
       dataReceived = false;
     }else{
       dataReceived = true;
-    }
-    
+    }*/
+    dataReceived = true;
     #ifdef DEBUG
       SerialMon.begin(57600);
       SerialMon.print(F("Received data from sensor: "));
@@ -277,21 +287,18 @@ void lerTensaoGSM()
    payload.tensao_r = modem.getBattVoltage()/1000.0;
 }
 
-String getJson(){
-  String publishingMsg = "{\"coletas\":[";
+void getJson(String *publishingMsg){
+  *publishingMsg = "{\"coletas\":[";
   
   for(int i = 0; i < ArraySize; ++i){
-    publishingMsg += "{ \"colmeia\":" +  String(ArrayPayloads[i].colmeia) + ",\"temperatura\":" + String(ArrayPayloads[i].temperatura) + ",\"umidade\":" + String(ArrayPayloads[i].umidade) + ",\"tensao_c\":" + String(ArrayPayloads[i].tensao_c) + ",\"tensao_r\":" + String(ArrayPayloads[i].tensao_r) + "}";
-    
-    if(i != 0 && i < ArraySize-1){
-      publishingMsg += ",";
+    if(i != 0 && i <= ArraySize-1){
+      *publishingMsg += ",";
     }
     
+    *publishingMsg += "{ \"colmeia\":" +  String(ArrayPayloads[i].colmeia) + ",\"temperatura\":" + String(ArrayPayloads[i].temperatura) + ",\"umidade\":" + String(ArrayPayloads[i].umidade) + ",\"tensao_c\":" + String(ArrayPayloads[i].tensao_c) + ",\"tensao_r\":" + String(ArrayPayloads[i].tensao_r) + "}";    
   }
   
-  publishingMsg += "]}";
-  
-  return publishingMsg;
+  *publishingMsg += "]}";
 }
 
 void publicar(String topicString, String msgJson){
@@ -302,8 +309,9 @@ void publicar(String topicString, String msgJson){
   length = topicString.length();
   char topicBuffer[length];
   topicString.toCharArray(topicBuffer,length+1);
-  
+   
   mqtt.publish(topicBuffer, msgBuffer);
+  delay(10000);
 }
 
 void sleepGSM() {

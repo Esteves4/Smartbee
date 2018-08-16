@@ -10,7 +10,7 @@
 #include <DHT.h>
 
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
-#define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
+#define DHTTYPE DHT11                                           // Sets the type of DHT utilized, DHT 22
 #define IDCOLMEIA 1                                             // ID of the Hive monitored
 #define TEMPO_ENTRE_CADA_LEITURA 30                             // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
