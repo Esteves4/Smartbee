@@ -5,8 +5,9 @@
 #define DUMP_AT_COMMANDS
 #define DEBUG
 
-#define TEMPOENTRECADALEITURA 20000                             // Time between each reading in milliseconds 
 #define DTR_PIN 7
+
+#define TOPIC "sensors/coleta"
 
 #include <TinyGsmClient.h>
 #include <SoftwareSerial.h>
@@ -23,14 +24,13 @@
 #include <SPI.h>
 
 //INITIAL CONFIGURATION OF NRF
-const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
-const int pinCSN = 9;                                           // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
+#define pinCE  8                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
+#define pinCSN  9                                           // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
 
 RF24 radio(pinCE, pinCSN);                                      // Declare object from nRF24 library (Create your wireless SPI)
 RF24Network network(radio);                                     // Network uses that radio
 
-const uint16_t id_origem = 00;                                  // Address of this node
-const uint16_t ids_destino[3] = {01, 02, 03};                   // Addresses of the others nodes
+#define id_origem 00                                  // Address of this node
 
 //INITIAL CONFIGURATION OF SIM800
 /*const char apn[]  = "claro.com.br";
@@ -46,9 +46,7 @@ SoftwareSerial SerialAT(4, 5);                                   // Serial Port 
 //INITIAL CONFIGURATION OF MQTT
 const char* broker = "200.129.43.208";
 const char* user_MQTT = "teste@teste";               
-const char* pass_MQTT = "123456";
-
-String topic = "sensors/coleta";            
+const char* pass_MQTT = "123456";    
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -71,9 +69,9 @@ struct payload_t {
 };
 
 //GLOBAL VARIABLES
-const uint8_t ArraySize = 2;
+const char ArraySize = 30;
 payload_t ArrayPayloads[ArraySize];
-uint8_t ArrayCount = 0;
+char ArrayCount = 0;
 payload_t payload;                                              // Used to store the payload from the sensor node
 
 bool dataReceived;                                              // Used to know whether a payload was received or not
@@ -167,19 +165,13 @@ void loop() {
         SerialMon.println(F("Conectando..."));
         connection();
         SerialMon.println(F("Publicando..."));
-        String msg;
-        getJson(&msg);
-        SerialMon.println(msg);
-        publicar(topic,msg); 
+        publicar(); 
         SerialMon.flush();
         SerialMon.end();
       #else
         wakeGSM();
         connection();
-        String msg;
-        getJson(&msg);
-        
-        publicar(topic,msg); 
+        publicar(); 
       #endif
       
       ArrayCount = 0;
@@ -287,31 +279,17 @@ void lerTensaoGSM()
    payload.tensao_r = modem.getBattVoltage()/1000.0;
 }
 
-void getJson(String *publishingMsg){
-  *publishingMsg = "{\"coletas\":[";
-  
+void publicar(){
   for(int i = 0; i < ArraySize; ++i){
-    if(i != 0 && i <= ArraySize-1){
-      *publishingMsg += ",";
-    }
+    String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r);
     
-    *publishingMsg += "{ \"colmeia\":" +  String(ArrayPayloads[i].colmeia) + ",\"temperatura\":" + String(ArrayPayloads[i].temperatura) + ",\"umidade\":" + String(ArrayPayloads[i].umidade) + ",\"tensao_c\":" + String(ArrayPayloads[i].tensao_c) + ",\"tensao_r\":" + String(ArrayPayloads[i].tensao_r) + "}";    
+    int length = msg.length();
+    char msgBuffer[length];
+    msg.toCharArray(msgBuffer,length+1);
+      
+    mqtt.publish(TOPIC, msgBuffer);
   }
   
-  *publishingMsg += "]}";
-}
-
-void publicar(String topicString, String msgJson){
-  int length = msgJson.length();
-  char msgBuffer[length];
-  msgJson.toCharArray(msgBuffer,length+1);
-
-  length = topicString.length();
-  char topicBuffer[length];
-  topicString.toCharArray(topicBuffer,length+1);
-   
-  mqtt.publish(topicBuffer, msgBuffer);
-  delay(10000);
 }
 
 void sleepGSM() {
