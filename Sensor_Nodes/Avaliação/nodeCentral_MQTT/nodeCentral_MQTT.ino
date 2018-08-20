@@ -2,7 +2,7 @@
 #define SerialMon Serial
 #define SerialAT Serial1
 #define TINY_GSM_DEBUG SerialMon
-#define DUMP_AT_COMMANDS
+//#define DUMP_AT_COMMANDS
 #define DEBUG
 
 #define DTR_PIN 7
@@ -37,16 +37,20 @@ RF24Network network(radio);                                     // Network uses 
 const char user[] = "claro";
 const char pass[] = "claro";*/
 
-const char apn[]  = "timbrasil.br";
-const char user[] = "tim";
-const char pass[] = "tim";
+const char* apn  = "timbrasil.br";
+const char* user = "tim";
+const char* pass = "tim";
 
 SoftwareSerial SerialAT(4, 5);                                   // Serial Port configuration -(RX, TX) pins of SIM800L
 
 //INITIAL CONFIGURATION OF MQTT
 const char* broker = "200.129.43.208";
 const char* user_MQTT = "teste@teste";               
-const char* pass_MQTT = "123456";    
+const char* pass_MQTT = "123456";
+
+//INITIAL CONFIGURATION OF SD
+#include <SD.h>
+File myFile;
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -60,18 +64,15 @@ const char* pass_MQTT = "123456";
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
-  int colmeia;
-  float temperatura;
-  float umidade;
-  float tensao_c;
-  float tensao_r;
+  char colmeia;
+  uint16_t temperatura;
+  uint16_t umidade;
+  uint16_t tensao_c;
+  uint16_t tensao_r;
   byte checksum;
 };
 
 //GLOBAL VARIABLES
-const char ArraySize = 30;
-payload_t ArrayPayloads[ArraySize];
-char ArrayCount = 0;
 payload_t payload;                                              // Used to store the payload from the sensor node
 
 bool dataReceived;                                              // Used to know whether a payload was received or not
@@ -120,29 +121,45 @@ void setup() {
   radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
   attachInterrupt(0, receberDados, FALLING);                    // Attach the pin where the interruption is going to happen
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
+  pinMode(6, OUTPUT);
+  #ifdef DEBUG
+    SerialMon.begin(57600);                                           // Start Serial communication
+    
+    SerialMon.println(F("Initializing SD..."));
+    if (!SD.begin(6)) {
+      SerialMon.println("initialization failed!");
+      return;
+    }
+    SerialMon.println(F("Done"));
+    SerialMon.flush();
+    SerialMon.end();
+
+  #else
+    SD.begin(6);
+  #endif
+ 
 }
 
 void loop() {
+  SerialMon.begin(57600);
+  SerialMon.println(F("Cheguei aqui"));
   network.update();                                            // Check the network regularly
+  SerialMon.println(F("Cheguei aqui 2"));
 
-  if (radio.rxFifoFull()) {                                     // If the RX FIFO is full calls the fuctions to receive the three packages in the FIFO 
-    for(int i = 0 ;i < 3; ++i){
-      receberDados();
-      salvarPayload();
-    }
-  } else if (radio.txFifoFull()) {                              // If the TX FIFO is full, the TX FIFO is cleared
-    radio.flush_tx();
-  }
-
+  SerialMon.println(F("Cheguei aqui 3"));
   #ifdef DEBUG
       SerialMon.begin(57600);
+      SerialMon.println(F("Shutting SIM800 down"));
+      sleepGSM();
       SerialMon.println(F("Shutting Arduino down"));
       SerialMon.flush();
       SerialMon.end();
+      LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
+  #else
+      sleepGSM();
+      LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
   #endif
-  
-  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
-  
+    
   attachInterrupt(0, receberDados, FALLING);
 
   #ifdef DEBUG
@@ -153,35 +170,25 @@ void loop() {
   #endif
 
   if (dataReceived) {
-    salvarPayload();
-
-    if(ArrayCount == ArraySize){
-      #ifdef DEBUG
+     #ifdef DEBUG
         SerialMon.begin(57600);
         SerialMon.println(F("Waking GSM"));
         wakeGSM();
         SerialMon.println(F("Conectando..."));
         connection();
+        SerialMon.println(F("Saving payload to SD"));
+        savePayload();
         SerialMon.println(F("Publicando..."));
-        publicar(); 
+        readPayload();
         SerialMon.flush();
         SerialMon.end();
       #else
         wakeGSM();
         connection();
-        publicar(); 
+        savePayload();
+        readPayload();
       #endif
-      
-      ArrayCount = 0;
-    }
   }
-
-}
-
-void salvarPayload(){
-  dataReceived = false;
-  ArrayPayloads[ArrayCount] = payload;
-  ++ArrayCount;
 }
 
 void connection(){
@@ -210,6 +217,20 @@ void connection(){
     mqtt.setServer(broker, 1883);
     mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
   #endif
+}
+
+void savePayload(){
+  myFile = SD.open("coletas.txt", FILE_WRITE);
+  myFile.println(String(payload.colmeia) + "," + String(payload.temperatura) + "," + String(payload.umidade) + "," + String(payload.tensao_c) + "," + String(payload.tensao_r) + "," + modem.getGSMDateTime(DATE_FULL));
+  myFile.close();
+}
+
+void readPayload(){
+  myFile = SD.open("coletas.txt");
+  while (myFile.available()) {
+      publicar(String(myFile.read()));
+  }
+  myFile.close();
 }
 
 void receberDados() {
@@ -255,9 +276,8 @@ void receberDados() {
       SerialMon.flush();
       SerialMon.end();
     #endif
-    
+    savePayload();
   }
-
 }
 
 byte getCheckSum(byte* payload) {
@@ -271,22 +291,12 @@ byte getCheckSum(byte* payload) {
   return sum;
 }
 
-void lerTensaoGSM()
-{
-   payload.tensao_r = modem.getBattVoltage()/1000.0;
-}
-
-void publicar(){
-  for(int i = 0; i < ArraySize; ++i){
-    String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r);
+void publicar(String msg){
+  int length = msg.length();
+  char msgBuffer[length];
+  msg.toCharArray(msgBuffer,length+1);
     
-    int length = msg.length();
-    char msgBuffer[length];
-    msg.toCharArray(msgBuffer,length+1);
-      
-    mqtt.publish(TOPIC, msgBuffer);
-  }
-  
+  mqtt.publish(TOPIC, msgBuffer);
 }
 
 void sleepGSM() {
