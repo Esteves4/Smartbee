@@ -33,11 +33,11 @@ const uint16_t id_destino = 00;                                 // Addresses of 
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
 
 struct payload_t {                                              // Structure of our payload
-  char colmeia;
-  uint16_t temperatura;
-  uint16_t umidade;
-  uint16_t tensao_c;
-  uint16_t tensao_r;
+  int colmeia;
+  float temperatura;
+  float umidade;
+  float tensao_c;
+  float tensao_r;
   byte checksum;
 };
 
@@ -143,9 +143,9 @@ void enviarDados() {
   /* Create the payload with the collected readings */
   payload_t payload;                                
   payload.colmeia = IDCOLMEIA;
-  payload.temperatura = temperatura_lida*100;
-  payload.umidade = umidade_lida*100;
-  payload.tensao_c = tensao_lida*100;
+  payload.temperatura = temperatura_lida;
+  payload.umidade = umidade_lida;
+  payload.tensao_c = tensao_lida;
   payload.tensao_r = 0;
   payload.checksum = getCheckSum((byte*) &payload);
 
