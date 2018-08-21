@@ -69,7 +69,7 @@ struct payload_t {
 };
 
 //GLOBAL VARIABLES
-const char ArraySize = 30;
+const char ArraySize = 5;
 payload_t ArrayPayloads[ArraySize];
 char ArrayCount = 0;
 payload_t payload;                                              // Used to store the payload from the sensor node
@@ -118,21 +118,12 @@ void setup() {
   radio.setPayloadSize(32);                                     // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
-  attachInterrupt(0, receberDados, FALLING);                    // Attach the pin where the interruption is going to happen
+  attachInterrupt(0, receiveData, FALLING);                    // Attach the pin where the interruption is going to happen
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
 }
 
 void loop() {
   network.update();                                            // Check the network regularly
-
-  if (radio.rxFifoFull()) {                                     // If the RX FIFO is full calls the fuctions to receive the three packages in the FIFO 
-    for(int i = 0 ;i < 3; ++i){
-      receberDados();
-      salvarPayload();
-    }
-  } else if (radio.txFifoFull()) {                              // If the TX FIFO is full, the TX FIFO is cleared
-    radio.flush_tx();
-  }
 
   #ifdef DEBUG
       SerialMon.begin(57600);
@@ -143,7 +134,7 @@ void loop() {
   
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
   
-  attachInterrupt(0, receberDados, FALLING);
+  attachInterrupt(0, receiveData, FALLING);
 
   #ifdef DEBUG
     SerialMon.begin(57600);
@@ -153,23 +144,24 @@ void loop() {
   #endif
 
   if (dataReceived) {
-    salvarPayload();
+    dataReceived = false;
+    savePayload();
 
     if(ArrayCount == ArraySize){
       #ifdef DEBUG
         SerialMon.begin(57600);
         SerialMon.println(F("Waking GSM"));
         wakeGSM();
-        SerialMon.println(F("Conectando..."));
+        SerialMon.println(F("Connecting to the server..."));
         connection();
-        SerialMon.println(F("Publicando..."));
-        publicar(); 
+        SerialMon.println(F("Publishing payload..."));
+        publish(); 
         SerialMon.flush();
         SerialMon.end();
       #else
         wakeGSM();
         connection();
-        publicar(); 
+        publish(); 
       #endif
       
       ArrayCount = 0;
@@ -178,8 +170,7 @@ void loop() {
 
 }
 
-void salvarPayload(){
-  dataReceived = false;
+void savePayload(){
   ArrayPayloads[ArrayCount] = payload;
   ++ArrayCount;
 }
@@ -212,7 +203,7 @@ void connection(){
   #endif
 }
 
-void receberDados() {
+void receiveData() {
   RF24NetworkHeader header;
   
   while (!network.available()) {                              // Keeps busy-waiting until the transmission of the payload is completed
@@ -271,12 +262,12 @@ byte getCheckSum(byte* payload) {
   return sum;
 }
 
-void lerTensaoGSM()
+void readVoltageGSM()
 {
    payload.tensao_r = modem.getBattVoltage()/1000.0;
 }
 
-void publicar(){
+void publish(){
   for(int i = 0; i < ArraySize; ++i){
     String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r);
     
