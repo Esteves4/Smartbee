@@ -10,7 +10,6 @@
 #define TOPIC "sensors/coleta"
 
 #include <TinyGsmClient.h>
-#include <SoftwareSerial.h>
 #include <PubSubClient.h>
 
 #include <LowPower.h>
@@ -41,8 +40,6 @@ const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
 
-SoftwareSerial SerialAT(4, 5);                                   // Serial Port configuration -(RX, TX) pins of SIM800L
-
 //INITIAL CONFIGURATION OF MQTT
 const char* broker = "200.129.43.208";
 const char* user_MQTT = "teste@teste";               
@@ -69,7 +66,7 @@ struct payload_t {
 };
 
 //GLOBAL VARIABLES
-const char ArraySize = 5;
+const char ArraySize = 15;
 payload_t ArrayPayloads[ArraySize];
 char ArrayCount = 0;
 payload_t payload;                                              // Used to store the payload from the sensor node
@@ -132,7 +129,8 @@ void loop() {
       SerialMon.end();
   #endif
   
-  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
+  //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
+  delay(10000);
   
   attachInterrupt(0, receiveData, FALLING);
 
@@ -142,10 +140,18 @@ void loop() {
     SerialMon.flush();
     SerialMon.end();
   #endif
-
+  for(int i = 0; i < ArraySize; ++i){
+    payload.colmeia = 1;
+    payload.temperatura = 20.0 + i;
+    payload.umidade = 15.0 + i;
+    payload.tensao_c = 0.0;
+    payload.tensao_r = 0.0;
+    savePayload();
+  }
+  dataReceived = true;
   if (dataReceived) {
     dataReceived = false;
-    savePayload();
+    //savePayload();
 
     if(ArrayCount == ArraySize){
       #ifdef DEBUG
@@ -155,13 +161,18 @@ void loop() {
         SerialMon.println(F("Connecting to the server..."));
         connection();
         SerialMon.println(F("Publishing payload..."));
-        publish(); 
+        publish();
+        delay(1000);
+        SerialMon.println(F("Shutting SIM800L down"));
+        sleepGSM(); 
         SerialMon.flush();
         SerialMon.end();
       #else
         wakeGSM();
         connection();
         publish(); 
+        delay(1000);
+        sleepGSM();
       #endif
       
       ArrayCount = 0;
