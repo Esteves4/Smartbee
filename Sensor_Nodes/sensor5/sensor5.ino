@@ -27,7 +27,7 @@ const int pinCSN = 9;                                           // This pin is u
 RF24 radio(pinCE, pinCSN);                                      // nRF24L01(+) radio attached using Getting Started board
 RF24Network network(radio);                                     // Network uses that radio
 
-const uint16_t id_origem = 05;                                  // Address of this node
+const uint16_t id_origem = 01;                                  // Address of this node
 const uint16_t id_destino = 00;                                 // Addresses of the master node
 
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
@@ -38,7 +38,6 @@ struct payload_t {                                              // Structure of 
   float umidade;
   float tensao_c;
   float tensao_r;
-  byte checksum;
 };
 
 /* Variables that hold our readings */
@@ -153,15 +152,4 @@ void enviarDados() {
   if (!network.write(header, &payload, sizeof(payload))) { 
     radio.flush_tx();
   }
-}
-
-byte getCheckSum(byte* payload) {
-  byte payload_size = sizeof(payload_t);
-  byte sum = 0;
-
-  for (byte i = 0; i < payload_size - 1; i++) {
-    sum += payload[i];
-  }
-
-  return sum;
 }
