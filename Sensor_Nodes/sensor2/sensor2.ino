@@ -27,7 +27,7 @@ const int pinCSN = 9;                                           // This pin is u
 RF24 radio(pinCE, pinCSN);                                      // nRF24L01(+) radio attached using Getting Started board
 RF24Network network(radio);                                     // Network uses that radio
 
-const uint16_t id_origem = 02;                                  // Address of this node
+const uint16_t id_origem = 01;                                  // Address of this node
 const uint16_t id_destino = 00;                                 // Addresses of the master node
 
 volatile bool interrupted = false;                              // Variable to know if a interruption ocurred or not
@@ -165,4 +165,3 @@ byte getCheckSum(byte* payload) {
 
   return sum;
 }
-

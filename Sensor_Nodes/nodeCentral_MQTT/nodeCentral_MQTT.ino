@@ -1,6 +1,5 @@
 #define TINY_GSM_MODEM_SIM800
 #define SerialMon Serial
-#define SerialAT Serial1
 #define TINY_GSM_DEBUG SerialMon
 #define DUMP_AT_COMMANDS
 #define DEBUG
@@ -10,6 +9,7 @@
 #define TOPIC "sensors/coleta"
 
 #include <TinyGsmClient.h>
+#include <SoftwareSerial.h>
 #include <PubSubClient.h>
 
 #include <LowPower.h>
@@ -40,6 +40,8 @@ const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
 
+SoftwareSerial SerialAT(4,5);
+
 //INITIAL CONFIGURATION OF MQTT
 const char* broker = "200.129.43.208";
 const char* user_MQTT = "teste@teste";               
@@ -62,7 +64,6 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
-  byte checksum;
 };
 
 //GLOBAL VARIABLES
@@ -129,8 +130,7 @@ void loop() {
       SerialMon.end();
   #endif
   
-  //LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
-  delay(10000);
+  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
   
   attachInterrupt(0, receiveData, FALLING);
 
@@ -140,18 +140,11 @@ void loop() {
     SerialMon.flush();
     SerialMon.end();
   #endif
-  for(int i = 0; i < ArraySize; ++i){
-    payload.colmeia = 1;
-    payload.temperatura = 20.0 + i;
-    payload.umidade = 15.0 + i;
-    payload.tensao_c = 0.0;
-    payload.tensao_r = 0.0;
-    savePayload();
-  }
+
   dataReceived = true;
   if (dataReceived) {
     dataReceived = false;
-    //savePayload();
+    savePayload();
 
     if(ArrayCount == ArraySize){
       #ifdef DEBUG
@@ -224,14 +217,6 @@ void receiveData() {
   while (network.available()) {                               // Reads the payload received
     network.read(header, &payload, sizeof(payload));
     
-    bool checksum_OK = payload.checksum == getCheckSum((byte*) &payload);
-
-    /*if(!checksum_OK){
-      //Pessquisar função que retorna o endereço de quem enviou a mensagem e solicita reenvio
-      dataReceived = false;
-    }else{
-      dataReceived = true;
-    }*/
     dataReceived = true;
     #ifdef DEBUG
       SerialMon.begin(57600);
@@ -249,28 +234,12 @@ void receiveData() {
       SerialMon.print(F(" "));
       SerialMon.println(payload.tensao_r);
       
-      if (checksum_OK) {
-        SerialMon.println(F("Checksum matched!"));
-      } else {
-        SerialMon.println(F("Checksum didn't match!"));
-      }
       SerialMon.flush();
       SerialMon.end();
     #endif
     
   }
 
-}
-
-byte getCheckSum(byte* payload) {
-  byte payload_size = sizeof(payload_t);
-  byte sum = 0;
-
-  for (byte i = 0; i < payload_size - 1; i++) {
-    sum += payload[i];
-  }
-
-  return sum;
 }
 
 void readVoltageGSM()
@@ -301,4 +270,3 @@ void wakeGSM() {
   digitalWrite(DTR_PIN, LOW);                                // Puts DTR pin in LOW mode so we can exit the sleep mode
   modem.sleepEnable(false);
 }
-
