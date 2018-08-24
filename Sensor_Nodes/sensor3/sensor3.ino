@@ -145,7 +145,6 @@ void enviarDados() {
   payload.umidade = umidade_lida;
   payload.tensao_c = tensao_lida;
   payload.tensao_r = 0;
-  payload.checksum = getCheckSum((byte*) &payload);
 
   delay(50);
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */

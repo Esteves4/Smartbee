@@ -10,7 +10,7 @@
 #include <DHT.h>
 
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
-#define DHTTYPE DHT11                                           // Sets the type of DHT utilized, DHT 22
+#define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
 #define IDCOLMEIA 1                                             // ID of the Hive monitored
 #define TEMPO_ENTRE_CADA_LEITURA 30                             // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
@@ -38,7 +38,6 @@ struct payload_t {                                              // Structure of 
   float umidade;
   float tensao_c;
   float tensao_r;
-  byte checksum;
 };
 
 /* Variables that hold our readings */
@@ -147,22 +146,10 @@ void enviarDados() {
   payload.umidade = umidade_lida;
   payload.tensao_c = tensao_lida;
   payload.tensao_r = 0;
-  payload.checksum = getCheckSum((byte*) &payload);
-
+ 
   delay(50);
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
   if (!network.write(header, &payload, sizeof(payload))) { 
     radio.flush_tx();
   }
-}
-
-byte getCheckSum(byte* payload) {
-  byte payload_size = sizeof(payload_t);
-  byte sum = 0;
-
-  for (byte i = 0; i < payload_size - 1; i++) {
-    sum += payload[i];
-  }
-
-  return sum;
 }
