@@ -64,6 +64,7 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
+  String  timestamp;
 };
 
 //GLOBAL VARIABLES
@@ -217,6 +218,11 @@ void receiveData() {
   while (network.available()) {                               // Reads the payload received
     network.read(header, &payload, sizeof(payload));
     
+    wakeGSM();                                                // Acorda GSM para resgatar tensão da bateria e timestamp
+    payload.timestamp = modem.getGSMDateTime(DATE_FULL);      
+    payload.tensao_r = modem.getBattVoltage()/1000.0;
+    sleepGSM();                                               // Desliga GSM novamente
+    
     dataReceived = true;
     #ifdef DEBUG
       SerialMon.begin(57600);
@@ -233,23 +239,19 @@ void receiveData() {
       SerialMon.print(payload.tensao_c);
       SerialMon.print(F(" "));
       SerialMon.println(payload.tensao_r);
+      SerialMon.print(F(" "));
+      SerialMon.println(payload.timestamp);
       
       SerialMon.flush();
       SerialMon.end();
-    #endif
-    
+    #endif 
   }
-
-}
-
-void readVoltageGSM()
-{
-   payload.tensao_r = modem.getBattVoltage()/1000.0;
+  
 }
 
 void publish(){
   for(int i = 0; i < ArraySize; ++i){
-    String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r);
+    String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r) + "," + ArrayPayloads[i].timestamp;
     
     int length = msg.length();
     char msgBuffer[length];
