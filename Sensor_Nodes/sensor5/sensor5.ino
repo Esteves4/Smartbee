@@ -12,7 +12,7 @@
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
 #define DHTTYPE DHT11                                           // Sets the type of DHT utilized, DHT 22
 #define IDCOLMEIA 5                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 38                             // Time between each reading in seconds  
+#define TEMPO_ENTRE_CADA_LEITURA 10                             // Time between each reading in seconds  
 #define SENSOR "Sensor 5"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
 #define PORTATENSAO 5                                           // Activation pin of the voltage sensor
@@ -51,6 +51,7 @@ float tensao_lida = 0;
 int SENSORSOM = A0;
 //int SENSORCO2 = 0;
 int SENSORTENSAO = A4;
+int count = 0;
 
 /* Reads the temperature and the humidity from DHT sensor */
 void lerDHT() {
@@ -145,10 +146,24 @@ void enviarDados() {
   payload.umidade = umidade_lida;
   payload.tensao_c = tensao_lida;
   payload.tensao_r = 0;
-
+  
   delay(50);
+  ++count;
+  if(count == 13){
+    count = 0;
+  }
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
   if (!network.write(header, &payload, sizeof(payload))) { 
     radio.flush_tx();
+    Serial.print("Pacote não enviado: ");
+    Serial.println(count);
+  }else{
+    Serial.begin(57600);
+    
+    Serial.print("Pacote enviado: ");
+    Serial.println(count);
+    
+    Serial.flush();
+    Serial.end();  
   }
 }

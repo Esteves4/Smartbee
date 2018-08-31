@@ -12,7 +12,7 @@
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
 #define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
 #define IDCOLMEIA 1                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 30                             // Time between each reading in seconds  
+#define TEMPO_ENTRE_CADA_LEITURA 300                             // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
 #define PORTATENSAO 5                                           // Activation pin of the voltage sensor
@@ -29,6 +29,7 @@ RF24Network network(radio);                                     // Network uses 
 
 const uint16_t id_origem = 01;                                  // Address of this node
 const uint16_t id_destino = 00;                                 // Addresses of the master node
+uint16_t count = 0;
 
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
 
@@ -38,6 +39,7 @@ struct payload_t {                                              // Structure of 
   float umidade;
   float tensao_c;
   float tensao_r;
+  String timestamp;
 };
 
 /* Variables that hold our readings */
@@ -148,8 +150,22 @@ void enviarDados() {
   payload.tensao_r = 0;
  
   delay(50);
+  ++count;
+  if(count == 13){
+    count = 0;
+  }
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
   if (!network.write(header, &payload, sizeof(payload))) { 
     radio.flush_tx();
+    Serial.print("Pacote não enviado: ");
+    Serial.println(count);
+  }else{
+    Serial.begin(57600);
+    
+    Serial.print("Pacote enviado: ");
+    Serial.println(count);
+    
+    Serial.flush();
+    Serial.end();  
   }
 }
