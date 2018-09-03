@@ -152,15 +152,18 @@ void enviarDados() {
   delay(50);
   ++count;
   if(count == 13){
-    count = 0;
+    count = 1;
   }
+  Serial.begin(57600);
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
   if (!network.write(header, &payload, sizeof(payload))) { 
     radio.flush_tx();
     Serial.print("Pacote não enviado: ");
     Serial.println(count);
+    Serial.flush();
+    Serial.end(); 
   }else{
-    Serial.begin(57600);
+    
     
     Serial.print("Pacote enviado: ");
     Serial.println(count);
