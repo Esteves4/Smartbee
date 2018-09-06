@@ -1,6 +1,8 @@
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
 #define SerialMon Serial                                                                          // Serial communication with the computer
-#define SerialAT Serial2                                                                          // Serial communication with the gsm module
+#define SerialAT Serial2
+
+// Serial communication with the gsm module
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
@@ -41,7 +43,7 @@ const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
 
-const int DTR_PIN 7                                                                               // This pin is used to wake up the gsm module
+const int DTR_PIN  = 7;                                                                               // This pin is used to wake up the gsm module
 
 //INITIAL CONFIGURATION OF MQTT 
 const char* broker = "200.129.43.208";                                                            // Address of the mqtt broker
@@ -85,7 +87,7 @@ void setup() {
     delay(10);
     
     SerialMon.println(F("Initializing SIM800L and Configuring..."));
-    SerialAT.begin(57600);
+    //SerialAT.begin(57600);
     delay(3000);
     
     pinMode(DTR_PIN, OUTPUT);
@@ -223,7 +225,7 @@ void connection(){
     mqtt.setServer(broker, 1883);
     
     SerialMon.println(F("Conectando ao broker..."));
-    return mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
+    mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
     
   #else
     modem.restart();
