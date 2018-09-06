@@ -132,13 +132,16 @@ void loop() {
   #ifdef DEBUG
       SerialMon.begin(57600);
       SerialMon.println(F("Shutting Arduino down"));
+      SerialMon.flush();
+      SerialMon.end();
   #endif
   
   LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
                                                          
-  cli();                                                                                          // Function to stop all interruptions  
-  
+  attachInterrupt(digitalPinToInterrupt(interruptPin), receiveData, FALLING);           // Attachs the interrupt again after enabling interruptions
+
   #ifdef DEBUG
+    SerialMon.begin(57600);
     SerialMon.println(F("Arduino woke up"));
   #endif
  
@@ -191,17 +194,16 @@ void loop() {
 
     #ifdef DEBUG
         SerialMon.println(F("Shutting SIM800L down"));
-        SerialMon.flush();
-        SerialMon.end();
+
     #endif
 
     /* Puts gsm to sleep again */
     sleepGSM();
+    #ifdef DEBUG        
+        SerialMon.flush();
+        SerialMon.end();
+    #endif
   }
-
-  sei();                                                                                // Function to enable interrupts
-
-  attachInterrupt(digitalPinToInterrupt(interruptPin), receiveData, FALLING);           // Attachs the interrupt again after enabling interruptions
 
 }
 
