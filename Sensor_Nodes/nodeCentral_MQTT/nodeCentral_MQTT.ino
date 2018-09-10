@@ -35,13 +35,13 @@ RF24Network network(radio);                                                     
 
 /* ### APN configurations ###  */
 
-/*const char apn[]  = "claro.com.br";
+const char apn[]  = "claro.com.br";
 const char user[] = "claro";
-const char pass[] = "claro";*/
+const char pass[] = "claro";
 
-const char apn[]  = "timbrasil.br";
+/*const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
-const char pass[] = "tim";
+const char pass[] = "tim";*/
 
 const int DTR_PIN  = 7;                                                                               // This pin is used to wake up the gsm module
 
@@ -87,7 +87,7 @@ void setup() {
     delay(10);
     
     SerialMon.println(F("Initializing SIM800L and Configuring..."));
-    //SerialAT.begin(57600);
+    SerialAT.begin(57600);
     delay(3000);
     
     pinMode(DTR_PIN, OUTPUT);
@@ -168,7 +168,7 @@ void loop() {
     ArrayPayloads[ArrayCount - 1].timestamp.remove(8,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(10,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(12);
-    ArrayPayloads[ArrayCount - 1].tensao_r = (analogRead(0)* (5.0 / 1023.0));
+    ArrayPayloads[ArrayCount - 1].tensao_r = lerBateria(A0);
 
     /* Check if the array is full, if it is, sends all the payloads to the webservice */
     
@@ -290,7 +290,7 @@ void publish(){
     msg.toCharArray(msgBuffer,length+1);
       
     mqtt.publish(TOPIC, msgBuffer);
-    delay(1000);
+    delay(2000);
   }
   
 }
@@ -305,4 +305,14 @@ void sleepGSM() {
 void wakeGSM() {  
   digitalWrite(DTR_PIN, LOW);                                                          // Puts DTR pin in LOW mode so we can exit the sleep mode
   modem.sleepEnable(false);
+}
+
+float lerBateria(byte pin) {
+  unsigned int soma = 0;
+  
+  for (byte i = 0; i < 10; i++) {
+    soma += analogRead(pin);
+  }
+
+  return ((soma / 10) * (5.0 / 1023.0))*12/4.546;
 }
