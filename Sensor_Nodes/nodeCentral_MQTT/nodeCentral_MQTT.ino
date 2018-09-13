@@ -1,8 +1,6 @@
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
 #define SerialMon Serial                                                                          // Serial communication with the computer
-#define SerialAT Serial2
-
-// Serial communication with the gsm module
+#define SerialAT Serial2                                                                          // Serial communication with the gsm module
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
@@ -39,11 +37,13 @@ const char apn[]  = "claro.com.br";
 const char user[] = "claro";
 const char pass[] = "claro";
 
-/*const char apn[]  = "timbrasil.br";
+/*
+const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
-const char pass[] = "tim";*/
+const char pass[] = "tim";
+*/
 
-const int DTR_PIN  = 7;                                                                               // This pin is used to wake up the gsm module
+const int DTR_PIN = 7;                                                                               // This pin is used to wake up the gsm module
 
 //INITIAL CONFIGURATION OF MQTT 
 const char* broker = "200.129.43.208";                                                            // Address of the mqtt broker
@@ -79,6 +79,10 @@ payload_t ArrayPayloads[ArraySize];                                             
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
+bool isDetached = false;
+
+long previousMillis = 0;
+long interval = 10000; //(ms)
 
 void setup() { 
   /* SIM800L configuration */
@@ -123,43 +127,68 @@ void setup() {
   radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
-  attachInterrupt(digitalPinToInterrupt(interruptPin), receiveData, FALLING);                     // Attach the pin where the interruption is going to happen
   network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
 
 }
 
 void loop() {
   network.update();                                                                               // Check the network regularly
-
-  #ifdef DEBUG
-      SerialMon.begin(57600);
-      SerialMon.println(F("Shutting Arduino down"));
-      SerialMon.flush();
-      SerialMon.end();
-  #endif
-  
-  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
-                                                         
-  attachInterrupt(digitalPinToInterrupt(interruptPin), receiveData, FALLING);           // Attachs the interrupt again after enabling interruptions
-
   #ifdef DEBUG
     SerialMon.begin(57600);
-    SerialMon.println(F("Arduino woke up"));
   #endif
+  
+  unsigned long currentMillis = millis();
+
+   if(currentMillis - previousMillis > interval) {
+      #ifdef DEBUG
+        SerialMon.println(F("\nShutting GSM down"));
+      #endif
+
+       /* Puts gsm to sleep again */
+       sleepGSM();
+
+      #ifdef DEBUG
+        SerialMon.println(F("Shutting Arduino down"));
+        SerialMon.flush();
+        SerialMon.end();
+      #endif
+
+      attachInterrupt(digitalPinToInterrupt(interruptPin), interruptFunction, FALLING);           // Attachs the interrupt again after enabling interruptions
+      
+      LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
+
+      detachInterrupt(digitalPinToInterrupt(interruptPin));
+      
+      /* Wakes gsm up */
+      #ifdef DEBUG
+        SerialMon.begin(57600);
+      #endif
+      
+      wakeGSM();                                                                                 // Wakes the gsm                                                            
+      delay(1000);                                                                               // Waits for the gsm's startup
+      
+      #ifdef DEBUG
+        SerialMon.println(F("GSM woke up"));
+        SerialMon.println(F("Arduino woke up"));
+        SerialMon.flush();
+        SerialMon.end();
+      #endif
+  }   
+
+  receiveData();                                         
  
   if (dataReceived) {
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+    #endif
+    
     dataReceived = false;
 
-    /* Wakes gsm up */
-    
-    #ifdef DEBUG
-        SerialMon.println(F("Waking GSM"));
-    #endif
-
-    wakeGSM();                                                                                 // Wakes the gsm                                                            
-    delay(1000);                                                                               // Waits for the gsm's startup
-
     /* Gets the timestamp and removes special characters of the string */
+    if(!modem.testAT()){
+        wakeGSM();                                                                                 // Wakes the gsm                                                            
+        delay(1000);                                                                               // Waits for the gsm's startup
+    }
     
     ArrayPayloads[ArrayCount - 1].timestamp = modem.getGSMDateTime(DATE_FULL);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(2,1);
@@ -168,13 +197,12 @@ void loop() {
     ArrayPayloads[ArrayCount - 1].timestamp.remove(8,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(10,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(12);
-    ArrayPayloads[ArrayCount - 1].tensao_r = lerBateria(A0);
 
     /* Check if the array is full, if it is, sends all the payloads to the webservice */
-    
+
     if(ArrayCount == ArraySize){
       #ifdef DEBUG
-        SerialMon.println(F("Connecting to the server..."));
+        SerialMon.println(F("\nConnecting to the server..."));
         connection(); 
         
         int signalQlt = modem.getSignalQuality();
@@ -194,19 +222,19 @@ void loop() {
       ArrayCount = 0;
     }
 
-    #ifdef DEBUG
-        SerialMon.println(F("Shutting SIM800L down"));
-
-    #endif
-
-    /* Puts gsm to sleep again */
-    sleepGSM();
-    #ifdef DEBUG        
-        SerialMon.flush();
-        SerialMon.end();
-    #endif
+    previousMillis = millis();
+    
   }
 
+  #ifdef DEBUG
+      SerialMon.flush();
+      SerialMon.end();
+  #endif
+
+}
+
+void interruptFunction(){
+    
 }
 
 void connection(){
@@ -241,11 +269,9 @@ void connection(){
 void receiveData() {
   RF24NetworkHeader header;
   
-  while (!network.available()) {                                                        // Keeps busy-waiting until the transmission of the payload is completed
-    network.update();
-  }
-  
-  while (network.available()) {                               
+  network.update();
+
+  if(network.available()) {                               
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
@@ -255,7 +281,7 @@ void receiveData() {
     
     #ifdef DEBUG
       SerialMon.begin(57600);
-      SerialMon.print(F("Received data from sensor: "));
+      SerialMon.print(F("\nReceived data from sensor: "));
       SerialMon.println(payload.colmeia);
   
       SerialMon.println(F("The data: "));
@@ -290,7 +316,7 @@ void publish(){
     msg.toCharArray(msgBuffer,length+1);
       
     mqtt.publish(TOPIC, msgBuffer);
-    delay(2000);
+    delay(1000);
   }
   
 }
@@ -305,14 +331,4 @@ void sleepGSM() {
 void wakeGSM() {  
   digitalWrite(DTR_PIN, LOW);                                                          // Puts DTR pin in LOW mode so we can exit the sleep mode
   modem.sleepEnable(false);
-}
-
-float lerBateria(byte pin) {
-  unsigned int soma = 0;
-  
-  for (byte i = 0; i < 10; i++) {
-    soma += analogRead(pin);
-  }
-
-  return ((soma / 10) * (5.0 / 1023.0))*12/4.546;
 }

@@ -33,13 +33,15 @@ RF24Network network(radio);                                                     
 
 /* ### APN configurations ###  */
 
-/*const char apn[]  = "claro.com.br";
+const char apn[]  = "claro.com.br";
 const char user[] = "claro";
-const char pass[] = "claro";*/
+const char pass[] = "claro";
 
+/*
 const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
+*/
 
 const int DTR_PIN = 7;                                                                               // This pin is used to wake up the gsm module
 
@@ -77,6 +79,7 @@ payload_t ArrayPayloads[ArraySize];                                             
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
+bool isDetached = false;
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
@@ -124,53 +127,68 @@ void setup() {
   radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
-  attachInterrupt(digitalPinToInterrupt(interruptPin), receiveData, FALLING);                     // Attach the pin where the interruption is going to happen
   network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
 
 }
 
 void loop() {
   network.update();                                                                               // Check the network regularly
-
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+  #endif
+  
   unsigned long currentMillis = millis();
 
    if(currentMillis - previousMillis > interval) {
       #ifdef DEBUG
-        SerialMon.begin(57600);
+        SerialMon.println(F("\nShutting GSM down"));
+      #endif
+
+       /* Puts gsm to sleep again */
+       sleepGSM();
+
+      #ifdef DEBUG
         SerialMon.println(F("Shutting Arduino down"));
         SerialMon.flush();
         SerialMon.end();
       #endif
 
-      attachInterrupt(digitalPinToInterrupt(interruptPin), receiveData, FALLING);           // Attachs the interrupt again after enabling interruptions
-
+      attachInterrupt(digitalPinToInterrupt(interruptPin), interruptFunction, FALLING);           // Attachs the interrupt again after enabling interruptions
+      
       LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
 
+      detachInterrupt(digitalPinToInterrupt(interruptPin));
+      
+      /* Wakes gsm up */
       #ifdef DEBUG
         SerialMon.begin(57600);
+      #endif
+      
+      wakeGSM();                                                                                 // Wakes the gsm                                                            
+      delay(1000);                                                                               // Waits for the gsm's startup
+      
+      #ifdef DEBUG
+        SerialMon.println(F("GSM woke up"));
         SerialMon.println(F("Arduino woke up"));
         SerialMon.flush();
         SerialMon.end();
       #endif
-  }                                             
+  }   
+
+  receiveData();                                         
  
   if (dataReceived) {
-    previousMillis = millis();
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+    #endif
+    
     dataReceived = false;
 
-    /* Wakes gsm up */
-    
-    #ifdef DEBUG
-        SerialMon.begin(57600);
-        SerialMon.println(F("Waking GSM"));
-        SerialMon.flush();
-        SerialMon.end();
-    #endif
-
-    wakeGSM();                                                                                 // Wakes the gsm                                                            
-    delay(1000);                                                                               // Waits for the gsm's startup
-
     /* Gets the timestamp and removes special characters of the string */
+    if(!modem.testAT()){
+        wakeGSM();                                                                                 // Wakes the gsm                                                            
+        delay(1000);                                                                               // Waits for the gsm's startup
+    }
     
     ArrayPayloads[ArrayCount - 1].timestamp = modem.getGSMDateTime(DATE_FULL);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(2,1);
@@ -179,14 +197,12 @@ void loop() {
     ArrayPayloads[ArrayCount - 1].timestamp.remove(8,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(10,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(12);
-    ArrayPayloads[ArrayCount - 1].tensao_r = (analogRead(0)* (5.0 / 1023.0));
 
     /* Check if the array is full, if it is, sends all the payloads to the webservice */
 
     if(ArrayCount == ArraySize){
       #ifdef DEBUG
-        SerialMon.begin(57600);
-        SerialMon.println(F("Connecting to the server..."));
+        SerialMon.println(F("\nConnecting to the server..."));
         connection(); 
         
         int signalQlt = modem.getSignalQuality();
@@ -195,8 +211,6 @@ void loop() {
         SerialMon.println(F("Publishing payload..."));
         publish();
         delay(1000);
-        SerialMon.flush();
-        SerialMon.end();
 
       #else
         connection();
@@ -208,18 +222,19 @@ void loop() {
       ArrayCount = 0;
     }
 
-    #ifdef DEBUG
-        SerialMon.begin(57600);
-        SerialMon.println(F("Shutting SIM800L down"));
-        SerialMon.flush();
-        SerialMon.end();
-    #endif
-
-    /* Puts gsm to sleep again */
-    sleepGSM();
+    previousMillis = millis();
+    
   }
 
-  receiveData();
+  #ifdef DEBUG
+      SerialMon.flush();
+      SerialMon.end();
+  #endif
+
+}
+
+void interruptFunction(){
+    
 }
 
 void connection(){
@@ -238,7 +253,7 @@ void connection(){
     mqtt.setServer(broker, 1883);
     
     SerialMon.println(F("Conectando ao broker..."));
-    return mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
+    mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
     
   #else
     modem.restart();
@@ -252,15 +267,11 @@ void connection(){
 }
 
 void receiveData() {
-  detachInterrupt(digitalPinToInterrupt(interruptPin));
-  
   RF24NetworkHeader header;
   
-  while (!network.available()) {                                                        // Keeps busy-waiting until the transmission of the payload is completed
-    network.update();
-  }
-  
-  while (network.available()) {                               
+  network.update();
+
+  if(network.available()) {                               
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
@@ -270,7 +281,7 @@ void receiveData() {
     
     #ifdef DEBUG
       SerialMon.begin(57600);
-      SerialMon.print(F("Received data from sensor: "));
+      SerialMon.print(F("\nReceived data from sensor: "));
       SerialMon.println(payload.colmeia);
   
       SerialMon.println(F("The data: "));

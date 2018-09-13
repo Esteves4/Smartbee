@@ -15,7 +15,6 @@
 #define TEMPO_ENTRE_CADA_LEITURA 300                             // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
-#define PORTATENSAO 5                                           // Activation pin of the voltage sensor
 #define DEBUG
 
 DHT dht(DHTPIN, DHTTYPE);                                       // Object of the temperature sensor
@@ -50,9 +49,9 @@ float som_lido = 0;
 float tensao_lida = 0;
 
 /* Analogic ports for reading */
-int SENSORSOM = A0;
+int SENSORSOM = A4;
 //int SENSORCO2 = 0;
-int SENSORTENSAO = A4;
+int SENSORTENSAO = A1;
 
 /* Reads the temperature and the humidity from DHT sensor */
 void lerDHT() {
@@ -126,6 +125,7 @@ void loop() {
 
   /* Performs the readings */
   lerDHT();
+  lerTensao();
   
   enviarDados();                                              // Sends the data to the gateway
 
@@ -143,10 +143,10 @@ void enviarDados() {
 
   /* Create the payload with the collected readings */
   payload_t payload;                                
-  payload.colmeia = IDCOLMEIA;
+  payload.colmeia = count;
   payload.temperatura = temperatura_lida;
   payload.umidade = umidade_lida;
-  payload.tensao_c = tensao_lida;
+  payload.tensao_c = 0;
   payload.tensao_r = 0;
  
   delay(50);
@@ -171,4 +171,15 @@ void enviarDados() {
     Serial.flush();
     Serial.end();  
   }
+}
+
+
+float lerBateria(byte pin) {
+  unsigned int soma = 0;
+  
+  for (byte i = 0; i < 10; i++) {
+    soma += analogRead(pin);
+  }
+
+  return ((soma / 10) * (5.0 / 1023.0));
 }
