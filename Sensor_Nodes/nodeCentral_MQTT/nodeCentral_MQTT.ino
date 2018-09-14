@@ -79,7 +79,6 @@ payload_t ArrayPayloads[ArraySize];                                             
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
-bool isDetached = false;
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
@@ -183,13 +182,13 @@ void loop() {
     #endif
     
     dataReceived = false;
-
-    /* Gets the timestamp and removes special characters of the string */
+    
     if(!modem.testAT()){
         wakeGSM();                                                                                 // Wakes the gsm                                                            
         delay(1000);                                                                               // Waits for the gsm's startup
     }
-    
+
+    /* Gets the timestamp and removes special characters of the string */
     ArrayPayloads[ArrayCount - 1].timestamp = modem.getGSMDateTime(DATE_FULL);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(2,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(4,1);
