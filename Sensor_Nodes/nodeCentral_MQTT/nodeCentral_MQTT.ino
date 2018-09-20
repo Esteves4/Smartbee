@@ -1,4 +1,3 @@
-#include <DigitalIO.h>
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
 #define SerialMon Serial                                                                          // Serial communication with the computer
 #define SerialAT Serial2                                                                          // Serial communication with the gsm module
@@ -25,11 +24,14 @@
 const uint8_t SOFT_MISO_PIN = 10;
 const uint8_t SOFT_MOSI_PIN = 11;
 const uint8_t SOFT_SCK_PIN  = 12;
+
 // Chip select may be constant or RAM variable.
 const uint8_t SD_CHIP_SELECT_PIN = 13;
 const int8_t DISABLE_CHIP_SELECT = -1;
+
 // SdFat software SPI template
 SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
+
 // Test file.
 SdFile file;
 
@@ -140,21 +142,20 @@ void setup() {
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
   /* SD configuration*/
-//  radio.stopListening();
-//  enableSD();
+
   #ifdef DEBUG
     SerialMon.println(F("Initializing SD..."));
+    
     if (!SD.begin(SD_CHIP_SELECT_PIN))
       SerialMon.println("Initialization failed!");
     else
       SerialMon.println("Initialization done.");
+      
     SerialMon.flush();
     SerialMon.end();
   #else
     SD.begin(SD_CHIP_SELECT_PIN);
   #endif
-//  disableSD();
-//  radio.startListening();
 
   network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
 
@@ -162,6 +163,7 @@ void setup() {
 
 void loop() {
   network.update();                                                                               // Check the network regularly
+  
   #ifdef DEBUG
     SerialMon.begin(57600);
   #endif
@@ -336,17 +338,22 @@ void receiveData() {
 void publish(){
 
   /* Sends to the webservice all the payloads saved */
-
+  String msg = "";
+ 
   for(int i = 0; i < ArraySize; ++i){
-    String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r) + "," + String(ArrayPayloads[i].timestamp);
-        
-    int length = msg.length();
-    char msgBuffer[length];
-    msg.toCharArray(msgBuffer,length+1);
-    
-    mqtt.publish(TOPIC, msgBuffer);
-    delay(1000);
+    if(i > 0){
+      msg += "/";
+    }
+    msg += String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r) + "," + String(ArrayPayloads[i].timestamp);
+            
   }
+ 
+  int length = msg.length();
+  char msgBuffer[length];
+  msg.toCharArray(msgBuffer,length+1);
+  
+  mqtt.publish(TOPIC, msgBuffer);
+  delay(1000);
 
 }
 
@@ -361,21 +368,3 @@ void wakeGSM() {
   digitalWrite(DTR_PIN, LOW);                                                          // Puts DTR pin in LOW mode so we can exit the sleep mode
   modem.sleepEnable(false);
 }
-
-//void enableSD() {
-//  pinMode(pinCE, OUTPUT);
-//  pinMode(pinCSN, OUTPUT);
-//  pinMode(pinSD, OUTPUT);
-//  digitalWrite(pinCE, LOW);
-//  digitalWrite(pinCSN, HIGH);
-//  digitalWrite(pinSD, LOW);
-//}
-//
-//void disableSD() {
-//  pinMode(pinCE, OUTPUT);
-//  pinMode(pinCSN, OUTPUT);
-//  pinMode(pinSD, OUTPUT);
-//  digitalWrite(pinCE, HIGH);
-//  digitalWrite(pinCSN, LOW);
-//  digitalWrite(pinSD, HIGH);
-//}
