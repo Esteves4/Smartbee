@@ -1,7 +1,6 @@
-#include <DigitalIO.h>
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
-#define SerialMon Serial                                                                          // Serial communication with the computer
-#define SerialAT Serial2                                                                          // Serial communication with the gsm module
+#define SerialMon Serial                                                                        // Serial communication with the computer
+#define SerialAT Serial2                                                                        // Serial communication with the gsm module
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
@@ -18,6 +17,7 @@
 
 #include <nRF24L01.h>
 #include <RF24.h>
+//#include <DigitalIO.h>
 #include <SdFat.h>
 #include <SPI.h>
 
@@ -25,12 +25,13 @@
 const uint8_t SOFT_MISO_PIN = 10;
 const uint8_t SOFT_MOSI_PIN = 11;
 const uint8_t SOFT_SCK_PIN  = 12;
-// Chip select may be constant or RAM variable.
 const uint8_t SD_CHIP_SELECT_PIN = 13;
-const int8_t DISABLE_CHIP_SELECT = -1;
+const int8_t  DISABLE_CHIP_SELECT = -1;
+
 // SdFat software SPI template
 SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
-// Test file.
+
+// File
 SdFile file;
 
 //INITIAL CONFIGURATION OF NRF
@@ -97,6 +98,10 @@ bool dataReceived;                                                              
 long previousMillis = 0;
 long interval = 10000; //(ms)
 
+// PROTOTYPES OF FUNCTIONS - Force them to be after declarations
+String payloadToString(payload_t* tmp_pp);
+void saveToSD(payload_t* tmp_pp);
+
 void setup() { 
   /* SIM800L configuration */
   #ifdef DEBUG
@@ -140,21 +145,20 @@ void setup() {
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
   /* SD configuration*/
-//  radio.stopListening();
-//  enableSD();
+  
   #ifdef DEBUG
     SerialMon.println(F("Initializing SD..."));
+    
     if (!SD.begin(SD_CHIP_SELECT_PIN))
       SerialMon.println("Initialization failed!");
     else
       SerialMon.println("Initialization done.");
+      
     SerialMon.flush();
     SerialMon.end();
   #else
     SD.begin(SD_CHIP_SELECT_PIN);
   #endif
-//  disableSD();
-//  radio.startListening();
 
   network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
 
@@ -162,6 +166,7 @@ void setup() {
 
 void loop() {
   network.update();                                                                               // Check the network regularly
+  
   #ifdef DEBUG
     SerialMon.begin(57600);
   #endif
@@ -226,13 +231,27 @@ void loop() {
     ArrayPayloads[ArrayCount - 1].timestamp.remove(8,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(10,1);
     ArrayPayloads[ArrayCount - 1].timestamp.remove(12);
+
+    /* Save the payload in the microSD card */
+    #ifdef DEBUG
+      SerialMon.print("Writing payload into SD... ");
+      SerialMon.flush();
+    #endif
+    
+    saveToSD(&ArrayPayloads[ArrayCount - 1]);
+    
+    #ifdef DEBUG
+      SerialMon.println("Done!");
+      SerialMon.flush();
+    #endif
+    
     
     /* Check if the array is full, if it is, sends all the payloads to the webservice */
 
     if(ArrayCount == ArraySize){
       #ifdef DEBUG
         SerialMon.println(F("\nConnecting to the server..."));
-        connection(); 
+        connection();
         
         int signalQlt = modem.getSignalQuality();
         SerialMon.println("GSM Signal Quality: " + String(signalQlt));
@@ -336,17 +355,22 @@ void receiveData() {
 void publish(){
 
   /* Sends to the webservice all the payloads saved */
-
+  String msg = "";
+ 
   for(int i = 0; i < ArraySize; ++i){
-    String msg = String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r) + "," + String(ArrayPayloads[i].timestamp);
-        
-    int length = msg.length();
-    char msgBuffer[length];
-    msg.toCharArray(msgBuffer,length+1);
-    
-    mqtt.publish(TOPIC, msgBuffer);
-    delay(1000);
+    if(i > 0){
+      msg += "/";
+    }
+    msg += payloadToString(&ArrayPayloads[i]);
+            
   }
+ 
+  int length = msg.length();
+  char msgBuffer[length];
+  msg.toCharArray(msgBuffer,length+1);
+  
+  mqtt.publish(TOPIC, msgBuffer);
+  delay(1000);
 
 }
 
@@ -362,20 +386,23 @@ void wakeGSM() {
   modem.sleepEnable(false);
 }
 
-//void enableSD() {
-//  pinMode(pinCE, OUTPUT);
-//  pinMode(pinCSN, OUTPUT);
-//  pinMode(pinSD, OUTPUT);
-//  digitalWrite(pinCE, LOW);
-//  digitalWrite(pinCSN, HIGH);
-//  digitalWrite(pinSD, LOW);
-//}
-//
-//void disableSD() {
-//  pinMode(pinCE, OUTPUT);
-//  pinMode(pinCSN, OUTPUT);
-//  pinMode(pinSD, OUTPUT);
-//  digitalWrite(pinCE, HIGH);
-//  digitalWrite(pinCSN, LOW);
-//  digitalWrite(pinSD, HIGH);
-//}
+void saveToSD(payload_t* tmp_pp) {                                                     // Procedure to save the data received in the SD (backup and buffer)
+  String fileName = tmp_pp->timestamp.substring(4,6) + "_"   +                         // Gets the timestamp to create the name of the file
+                    tmp_pp->timestamp.substring(2,4) + "_20" +
+                    tmp_pp->timestamp.substring(0,2);
+  char cp[50];
+  fileName.toCharArray(cp, 50);                                                        // Converts the string of the name to char array
+  // Writes the payload data into the SD backup file
+  file.open(cp, FILE_WRITE);
+  file.println(payloadToString(tmp_pp));
+  file.close();
+  
+  // Writes the payload data into the SD buffer file
+  file.open("buffer.txt", FILE_WRITE);
+  file.println(payloadToString(tmp_pp));
+  file.close();
+}
+
+String payloadToString(payload_t* tmp_pp) {
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->timestamp);
+}
