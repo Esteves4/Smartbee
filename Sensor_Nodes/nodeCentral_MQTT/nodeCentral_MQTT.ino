@@ -17,7 +17,6 @@
 
 #include <nRF24L01.h>
 #include <RF24.h>
-//#include <DigitalIO.h>
 #include <SdFat.h>
 #include <SPI.h>
 
@@ -33,6 +32,7 @@ SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
 
 // File
 SdFile file;
+SdFile file2;
 
 //INITIAL CONFIGURATION OF NRF
 const int pinCE = 53;                                                                             // This pin is used to set the nRF24 to standby (0) or active mode (1)
@@ -356,20 +356,47 @@ void publish(){
 
   /* Sends to the webservice all the payloads saved */
   String msg = "";
- 
+  file.open("buffer.txt", FILE_READ);
+  file2.open("tmp_buffer.txt", FILE_WRITE);
+
+  /*
   for(int i = 0; i < ArraySize; ++i){
     if(i > 0){
       msg += "/";
     }
+    
     msg += payloadToString(&ArrayPayloads[i]);
             
   }
- 
-  int length = msg.length();
-  char msgBuffer[length];
-  msg.toCharArray(msgBuffer,length+1);
+  */
   
-  mqtt.publish(TOPIC, msgBuffer);
+  //int length = msg.length();
+  char msgBuffer[420];
+  /* Gets the next packet to sent from buffer.txt */
+  for (int i = 0; i < 419; i++) {
+    char c;
+    if (!file.available() || (c = file.read()) == '\n') break;
+    msgBuffer[i] = c;
+  }
+  
+  //msg.toCharArray(msgBuffer,length+1);
+
+  /* If the packet couldn't be sent, save in a new buffer */
+  if (!mqtt.publish(TOPIC, msgBuffer)) {
+    file2.println(msgBuffer);
+  }
+
+  /* Save the rest of the buffer.txt in the new buffer */
+  while (file.available()) {
+    file2.print(file.read());
+  }
+
+  /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
+  file.close();
+  SD.remove("buffer.txt");
+  file2.rename(SD.vwd(), "buffer.txt");
+  file2.close();
+  
   delay(1000);
 
 }
@@ -390,16 +417,27 @@ void saveToSD(payload_t* tmp_pp) {                                              
   String fileName = tmp_pp->timestamp.substring(4,6) + "_"   +                         // Gets the timestamp to create the name of the file
                     tmp_pp->timestamp.substring(2,4) + "_20" +
                     tmp_pp->timestamp.substring(0,2);
-  char cp[50];
-  fileName.toCharArray(cp, 50);                                                        // Converts the string of the name to char array
-  // Writes the payload data into the SD backup file
+  char cp[11];
+  fileName.toCharArray(cp, 11);                                                        // Converts the string of the name to char array
+  
+  /* Writes the payload data into the SD backup file */
   file.open(cp, FILE_WRITE);
   file.println(payloadToString(tmp_pp));
   file.close();
   
-  // Writes the payload data into the SD buffer file
+  /* Writes the payload data into the SD buffer file */
   file.open("buffer.txt", FILE_WRITE);
-  file.println(payloadToString(tmp_pp));
+  
+  if (ArrayCount - 1 > 0) {
+    file.print("/");                                                                   // Add a slash between payloads
+  }
+  
+  file.print(payloadToString(tmp_pp));
+  
+  if (ArrayCount == 12) {
+    file.println();                                                                    // Add a new line after 12 payloads
+  }
+  
   file.close();
 }
 
