@@ -9,6 +9,9 @@
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
 
+#include <Wire.h>        //Biblioteca para manipulação do protocolo I2C
+#include <RtcDS3231.h>      //Biblioteca para manipulação do DS3231
+
 #include <LowPower.h>
 
 #include <RF24Network.h>
@@ -24,15 +27,17 @@
 const uint8_t SOFT_MISO_PIN = 10;
 const uint8_t SOFT_MOSI_PIN = 11;
 const uint8_t SOFT_SCK_PIN  = 12;
-
-// Chip select may be constant or RAM variable.
 const uint8_t SD_CHIP_SELECT_PIN = 13;
-const int8_t DISABLE_CHIP_SELECT = -1;
+const int8_t  DISABLE_CHIP_SELECT = -1;
+
+//INITIAL CONFIGURATION OF RTC 
+RtcDS3231<TwoWire> Rtc(Wire);                                                                                       // Criação do objeto do tipo DS3231
+#define countof(a) (sizeof(a) / sizeof(a[0]))
 
 // SdFat software SPI template
 SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
 
-// Test file.
+// File
 SdFile file;
 
 //INITIAL CONFIGURATION OF NRF
@@ -85,7 +90,7 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
-  String  timestamp;
+  char  timestamp[20];
 };
 
 //GLOBAL VARIABLES
@@ -98,6 +103,10 @@ bool dataReceived;                                                              
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
+
+// PROTOTYPES OF FUNCTIONS - Force them to be after declarations
+String payloadToString(payload_t* tmp_pp);
+void saveToSD(payload_t* tmp_pp);
 
 void setup() { 
   /* SIM800L configuration */
@@ -114,17 +123,85 @@ void setup() {
 
     SerialMon.println(F("Shutting SIM800L down"));
     sleepGSM();
+
+    SerialMon.println(F("Initializing RTC and Configuring..."));
+
+    RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
+    
+    Rtc.Begin();
+
+
+    if (!Rtc.IsDateTimeValid()) 
+    {
+        // Common Cuases:
+        //    1) first time you ran and the device wasn't running yet
+        //    2) the battery on the device is low or even missing
+
+        Serial.println("RTC lost confidence in the DateTime!");
+
+        // following line sets the RTC to the date & time this sketch was compiled
+        // it will also reset the valid flag internally unless the Rtc device is
+        // having an issue
+
+        Rtc.SetDateTime(compiled);
+    }
+
+    if (!Rtc.GetIsRunning())
+    {
+        Serial.println("RTC was not actively running, starting now");
+        Rtc.SetIsRunning(true);
+    }
+
+    RtcDateTime now = Rtc.GetDateTime();
+    
+    if (now < compiled) 
+    {
+        Serial.println("RTC is older than compile time!  (Updating DateTime)");
+        Rtc.SetDateTime(compiled);
+    }
+    else if (now > compiled) 
+    {
+        Serial.println("RTC is newer than compile time. (this is expected)");
+    }
+    else if (now == compiled) 
+    {
+        Serial.println("RTC is the same as compile time! (not expected but all is fine)");
+    }
+
+    // never assume the Rtc was last configured by you, so
+    // just clear them to your needed state
+    Rtc.Enable32kHzPin(false);
+    Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone); 
     
     SerialMon.flush();
     SerialMon.end();
   #else
 
     /* SIM800L configuration*/
-    
     SerialAT.begin(57600);                                                                        // Starts serial communication
     delay(3000);                                                                                  // Waits to communication be established
     
     sleepGSM();                                                                                   // Puts gsm to sleeps
+    
+    Rtc.Begin();
+    
+    RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__); 
+       
+    if (!Rtc.IsDateTimeValid()) {
+        Rtc.SetDateTime(compiled);
+    }
+
+    if (!Rtc.GetIsRunning()){
+          Rtc.SetIsRunning(true);
+    }
+
+    RtcDateTime now = Rtc.GetDateTime();
+    if (now < compiled) {
+        Rtc.SetDateTime(compiled);
+    }
+
+    Rtc.Enable32kHzPin(false);
+    Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
   #endif
     
   /* nRF24L01 configuration*/
@@ -142,7 +219,7 @@ void setup() {
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
   /* SD configuration*/
-
+  
   #ifdef DEBUG
     SerialMon.println(F("Initializing SD..."));
     
@@ -193,13 +270,6 @@ void loop() {
       /* Wakes gsm up */
       #ifdef DEBUG
         SerialMon.begin(57600);
-      #endif
-      
-      wakeGSM();                                                                                 // Wakes the gsm                                                            
-      delay(1000);                                                                               // Waits for the gsm's startup
-      
-      #ifdef DEBUG
-        SerialMon.println(F("GSM woke up"));
         SerialMon.println(F("Arduino woke up"));
         SerialMon.flush();
         SerialMon.end();
@@ -215,26 +285,42 @@ void loop() {
     
     dataReceived = false;
     
-    if(!modem.testAT()){
-        wakeGSM();                                                                                 // Wakes the gsm                                                            
-        delay(1000);                                                                               // Waits for the gsm's startup
-    }
+    /* Gets the timestamp from RTC */
+    RtcDateTime now = Rtc.GetDateTime();
 
-    /* Gets the timestamp and removes special characters of the string */
-    ArrayPayloads[ArrayCount - 1].timestamp = modem.getGSMDateTime(DATE_FULL);
-    ArrayPayloads[ArrayCount - 1].timestamp.remove(2,1);
-    ArrayPayloads[ArrayCount - 1].timestamp.remove(4,1);
-    ArrayPayloads[ArrayCount - 1].timestamp.remove(6,1);
-    ArrayPayloads[ArrayCount - 1].timestamp.remove(8,1);
-    ArrayPayloads[ArrayCount - 1].timestamp.remove(10,1);
-    ArrayPayloads[ArrayCount - 1].timestamp.remove(12);
+    snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
+            countof(ArrayPayloads[ArrayCount - 1].timestamp),
+            PSTR("%04u%02u%02u%02u%02u%02u"),
+            now.Year(),
+            now.Month(),
+            now.Day(),
+            now.Hour(),
+            now.Minute(),
+            now.Second());
+            
+    /* Save the payload in the microSD card */
+    #ifdef DEBUG
+      SerialMon.println("Writing payload into SD... ");
+    #endif
+    
+//    saveToSD(&ArrayPayloads[ArrayCount - 1]);
+    
+    #ifdef DEBUG
+      SerialMon.println("Done!");
+    #endif
+    
     
     /* Check if the array is full, if it is, sends all the payloads to the webservice */
 
     if(ArrayCount == ArraySize){
+      wakeGSM();                                                                                 // Wakes the gsm                                                            
+      delay(1000);                                                                               // Waits for the gsm's startup
+      
       #ifdef DEBUG
+        SerialMon.println(F("GSM woke up"));
+      
         SerialMon.println(F("\nConnecting to the server..."));
-        connection(); 
+        connection();
         
         int signalQlt = modem.getSignalQuality();
         SerialMon.println("GSM Signal Quality: " + String(signalQlt));
@@ -244,6 +330,9 @@ void loop() {
         delay(1000);
 
       #else
+        wakeGSM();                                                                                 // Wakes the gsm                                                            
+        delay(1000);                                                                               // Waits for the gsm's startup
+ 
         connection();
         publish(); 
         delay(1000);
@@ -344,7 +433,7 @@ void publish(){
     if(i > 0){
       msg += "/";
     }
-    msg += String(ArrayPayloads[i].colmeia) + "," + String(ArrayPayloads[i].temperatura) + "," + String(ArrayPayloads[i].umidade) + "," + String(ArrayPayloads[i].tensao_c) + "," + String(ArrayPayloads[i].tensao_r) + "," + String(ArrayPayloads[i].timestamp);
+    msg += payloadToString(&ArrayPayloads[i]);
             
   }
  
@@ -367,4 +456,18 @@ void sleepGSM() {
 void wakeGSM() {  
   digitalWrite(DTR_PIN, LOW);                                                          // Puts DTR pin in LOW mode so we can exit the sleep mode
   modem.sleepEnable(false);
+}
+
+/*
+void saveToSD(payload_t* tmp_pp) {
+  String fileName = tmp_pp->timestamp.substring(4,6) + "_" + tmp_pp->timestamp.substring(2,4) + "_20" + tmp_pp->timestamp.substring(0,2);
+  char cp[50];
+  fileName.toCharArray(cp, 50);
+  file.open(cp, FILE_WRITE);
+  file.println(payloadToString(tmp_pp));
+  file.close();
+}*/
+
+String payloadToString(payload_t* tmp_pp) {
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->timestamp);
 }
