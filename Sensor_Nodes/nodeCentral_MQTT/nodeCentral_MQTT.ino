@@ -161,7 +161,6 @@ void setup() {
   #endif
 
   network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
-
 }
 
 void loop() {
@@ -236,13 +235,17 @@ void loop() {
     #ifdef DEBUG
       SerialMon.print("Writing payload into SD... ");
       SerialMon.flush();
+      SerialMon.end();
+      SerialAT.flush();
+      SerialAT.end();
     #endif
     
     saveToSD(&ArrayPayloads[ArrayCount - 1]);
     
     #ifdef DEBUG
+      SerialMon.begin(57600);
       SerialMon.println("Done!");
-      SerialMon.flush();
+      SerialAT.begin(57600);
     #endif
     
     
@@ -282,7 +285,7 @@ void loop() {
 }
 
 void interruptFunction(){
-    
+     
 }
 
 void connection(){
@@ -371,19 +374,22 @@ void publish(){
   */
   
   //int length = msg.length();
-  char msgBuffer[420];
+  char msgBuffer[700];
   /* Gets the next packet to sent from buffer.txt */
-  for (int i = 0; i < 419; i++) {
+  int i;
+  for (i = 0; i < 699; i++) {
     char c;
     if (!file.available() || (c = file.read()) == '\n') break;
     msgBuffer[i] = c;
   }
+  msgBuffer[i] = '\0';
   
   //msg.toCharArray(msgBuffer,length+1);
 
   /* If the packet couldn't be sent, save in a new buffer */
   if (!mqtt.publish(TOPIC, msgBuffer)) {
-    file2.println(msgBuffer);
+    file2.print(msgBuffer);
+    file2.print('\n');
   }
 
   /* Save the rest of the buffer.txt in the new buffer */
@@ -393,8 +399,8 @@ void publish(){
 
   /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
   file.close();
-  SD.remove("buffer.txt");
-  file2.rename(SD.vwd(), "buffer.txt");
+//  SD.remove("buffer.txt");
+//  file2.rename(SD.vwd(), "buffer.txt");
   file2.close();
   
   delay(1000);
@@ -422,7 +428,8 @@ void saveToSD(payload_t* tmp_pp) {                                              
   
   /* Writes the payload data into the SD backup file */
   file.open(cp, FILE_WRITE);
-  file.println(payloadToString(tmp_pp));
+  file.print(payloadToString(tmp_pp));
+  file.print('\n');
   file.close();
   
   /* Writes the payload data into the SD buffer file */
@@ -435,7 +442,7 @@ void saveToSD(payload_t* tmp_pp) {                                              
   file.print(payloadToString(tmp_pp));
   
   if (ArrayCount == 12) {
-    file.println();                                                                    // Add a new line after 12 payloads
+    file.print('\n');                                                                    // Add a new line after 12 payloads
   }
   
   file.close();
