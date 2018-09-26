@@ -72,6 +72,7 @@ const char* user_MQTT = "teste@teste";                                          
 const char* pass_MQTT = "123456";                                                                 // Password for the tcp connection
 
 #define TOPIC "sensors/coleta"                                                                    // MQTT topic where we'll be sending the payloads
+#define MQTT_MAX_PACKET_SIZE 500                                                                  // Max size of the payload that PubSub library can send
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -91,11 +92,19 @@ struct payload_t {
   float tensao_c;
   float tensao_r;
   char  timestamp[20];
+  bool erro_vec[5];
 };
+
+#define E_TEMP  0
+#define E_UMID  1
+#define E_TEN_C 2
+#define E_TEN_R 3
+#define E_TIME  4
 
 //GLOBAL VARIABLES
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
 payload_t ArrayPayloads[ArraySize];                                                               // Array to save the payloads
+char msgBuffer[MQTT_MAX_PACKET_SIZE];                                                             // Buffer to send the payload
 
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
@@ -288,6 +297,10 @@ void loop() {
     /* Gets the timestamp from RTC */
     RtcDateTime now = Rtc.GetDateTime();
 
+    if (!Rtc.IsDateTimeValid()) {
+       ArrayPayloads[ArrayCount - 1].timestamp[E_TIME] = 1;
+    }
+
     snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
             countof(ArrayPayloads[ArrayCount - 1].timestamp),
             PSTR("%04u%02u%02u%02u%02u%02u"),
@@ -438,11 +451,18 @@ void publish(){
   }
  
   int length = msg.length();
-  char msgBuffer[length];
-  msg.toCharArray(msgBuffer,length+1);
   
-  mqtt.publish(TOPIC, msgBuffer);
-  delay(1000);
+  if( (length + 7 + strlen(TOPIC)) > MQTT_MAX_PACKET_SIZE){
+    #ifdef DEBUG
+      SerialMon.println(F("The payload is too big."));
+    #endif
+  }else{
+    msg.toCharArray(msgBuffer,length+1);
+  
+    mqtt.publish(TOPIC, msgBuffer);
+    delay(1000);
+  }
+
 
 }
 
