@@ -155,9 +155,58 @@ void setup() {
       SerialMon.println("Initialization done.");
       
     SerialMon.flush();
+
+    /* Get ArrayCount from SD (if there is one) */
+    if (SD.exists("ArrayCount.txt")) {
+      SerialMon.print("\nGetting ArrayCount from SD card...");
+      if (file.open("ArrayCount.txt", FILE_READ)) {
+        String count_str = "";
+        
+        while (file.available()) {
+          count_str += file.read();
+        }
+        
+        sscanf(count_str, "%u", &ArrayCount);
+        file.close();
+        
+        SerialMon.println("Done!");
+      } else {
+        SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
+      }
+    } else {
+      SerialMon.print("\nCreating ArrayCount.txt...");
+      if (file.open("ArrayCount.txt", FILE_WRITE)) {
+        file.println(ArrayCount);
+        file.close();
+        SerialMon.println("Done!");
+      } else {
+        SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
+      }
+    }
+
+    SerialMon.flush();
     SerialMon.end();
   #else
     SD.begin(SD_CHIP_SELECT_PIN);
+    
+    /* Get ArrayCount from SD (if there is one) */
+    if (SD.exists("ArrayCount.txt")) {
+      if (file.open("ArrayCount.txt", FILE_READ)) {
+        String count_str = "";
+        
+        while (file.available()) {
+          count_str += file.read();
+        }
+        
+        sscanf(count_str, "%u", &ArrayCount);
+        file.close();
+      }
+    } else {
+      if (file.open("ArrayCount.txt", FILE_WRITE)) {
+        file.println(ArrayCount);
+        file.close();
+      }
+    }
   #endif
 
   network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
@@ -428,8 +477,7 @@ void saveToSD(payload_t* tmp_pp) {                                              
   
   /* Writes the payload data into the SD backup file */
   file.open(cp, FILE_WRITE);
-  file.print(payloadToString(tmp_pp));
-  file.print('\n');
+  file.print(payloadToString(tmp_pp) + "\n");
   file.close();
   
   /* Writes the payload data into the SD buffer file */
