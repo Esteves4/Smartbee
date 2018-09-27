@@ -160,10 +160,17 @@ void setup() {
     if (SD.exists("ArrayCount.txt")) {
       SerialMon.print("\nGetting ArrayCount from SD card...");
       if (file.open("ArrayCount.txt", FILE_READ)) {
-        String count_str = "";
-        
+        char count_str[4];
+
+        byte i = 0;
         while (file.available()) {
-          count_str += file.read();
+          char c = file.read();
+          if (c >= 48 && c <= 57) {
+            count_str[i++] = c;
+          } else {
+            count_str[i] = '\0';
+            break;
+          }
         }
         
         sscanf(count_str, "%u", &ArrayCount);
@@ -311,7 +318,6 @@ void loop() {
         SerialMon.println(F("Publishing payload..."));
         publish();
         delay(1000);
-
       #else
         connection();
         publish(); 
@@ -320,6 +326,7 @@ void loop() {
 
       /* Starts to save the payloads again whether the payloads were sent or not */
       ArrayCount = 0;
+      updateArrayCountFile(ArrayCount);
     }
 
     previousMillis = millis();
@@ -375,7 +382,7 @@ void receiveData() {
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
-    ++ArrayCount;                                            
+    updateArrayCountFile(++ArrayCount);
     
     dataReceived = true;
     
@@ -498,4 +505,22 @@ void saveToSD(payload_t* tmp_pp) {                                              
 
 String payloadToString(payload_t* tmp_pp) {
   return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->timestamp);
+}
+
+void updateArrayCountFile(char val) {
+  #ifdef DEBUG
+    SerialMon.print("\nUpdating ArrayCount.txt...");
+    if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
+      file.println(val);
+      file.close();
+      SerialMon.println("Done!");
+    } else {
+      SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
+    }
+  #else
+    if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
+      file.println(val);
+      file.close();
+    }
+  #endif
 }
