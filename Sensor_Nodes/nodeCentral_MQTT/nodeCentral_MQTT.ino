@@ -4,7 +4,7 @@
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
-#define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
+//#define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
 
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
@@ -91,7 +91,7 @@ struct payload_t {
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
 payload_t ArrayPayloads[ArraySize];                                                               // Array to save the payloads
 
-char ArrayCount = 0;                                                                              // Used to store the next payload    
+byte ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
 
@@ -158,7 +158,7 @@ void setup() {
 
     /* Get ArrayCount from SD (if there is one) */
     if (SD.exists("ArrayCount.txt")) {
-      SerialMon.print("\nGetting ArrayCount from SD card...");
+      SerialMon.print("\nGetting ArrayCount from SD card... ");
       if (file.open("ArrayCount.txt", FILE_READ)) {
         char count_str[4];
 
@@ -176,14 +176,14 @@ void setup() {
         sscanf(count_str, "%u", &ArrayCount);
         file.close();
         
-        SerialMon.println("Done!");
+        SerialMon.print("Done!");
       } else {
         SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
       }
     } else {
       SerialMon.print("\nCreating ArrayCount.txt...");
       if (file.open("ArrayCount.txt", FILE_WRITE)) {
-        file.println(ArrayCount);
+        file.println((int) ArrayCount);
         file.close();
         SerialMon.println("Done!");
       } else {
@@ -197,22 +197,24 @@ void setup() {
     SD.begin(SD_CHIP_SELECT_PIN);
     
     /* Get ArrayCount from SD (if there is one) */
-    if (SD.exists("ArrayCount.txt")) {
-      if (file.open("ArrayCount.txt", FILE_READ)) {
-        String count_str = "";
-        
-        while (file.available()) {
-          count_str += file.read();
+    if (file.open("ArrayCount.txt", FILE_READ)) {
+      char count_str[4];
+
+      byte i = 0;
+      while (file.available()) {
+        char c = file.read();
+        if (c >= 48 && c <= 57) {
+          count_str[i++] = c;
+        } else {
+          count_str[i] = '\0';
+          break;
         }
-        
-        sscanf(count_str, "%u", &ArrayCount);
-        file.close();
       }
-    } else {
-      if (file.open("ArrayCount.txt", FILE_WRITE)) {
-        file.println(ArrayCount);
-        file.close();
-      }
+      
+      sscanf(count_str, "%u", &ArrayCount);
+      file.close();
+      
+      SerialMon.print("Done!");
     }
   #endif
 
@@ -455,8 +457,8 @@ void publish(){
 
   /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
   file.close();
-//  SD.remove("buffer.txt");
-//  file2.rename(SD.vwd(), "buffer.txt");
+  SD.remove("buffer.txt");
+  file2.rename(SD.vwd(), "buffer.txt");
   file2.close();
   
   delay(1000);
@@ -511,7 +513,7 @@ void updateArrayCountFile(char val) {
   #ifdef DEBUG
     SerialMon.print("\nUpdating ArrayCount.txt...");
     if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
-      file.println(val);
+      file.println((int) val);
       file.close();
       SerialMon.println("Done!");
     } else {
@@ -519,7 +521,7 @@ void updateArrayCountFile(char val) {
     }
   #else
     if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
-      file.println(val);
+      file.println((int) val);
       file.close();
     }
   #endif
