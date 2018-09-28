@@ -15,11 +15,9 @@
 #include <LowPower.h>
 
 #include <RF24Network.h>
-#include <RF24Network_config.h>
-#include <Sync.h>
-
-#include <nRF24L01.h>
 #include <RF24.h>
+#include <RF24Mesh.h>  
+
 #include <SdFat.h>
 #include <SPI.h>
 
@@ -47,8 +45,9 @@ const int interruptPin = 18;                                                    
 
 RF24 radio(pinCE, pinCSN);                                                                        // Declare object from nRF24 library (Create your wireless SPI)
 RF24Network network(radio);                                                                       // Network uses that radio
+RF24Mesh mesh(radio,network);
 
-#define id_origem 00                                                                              // Address of this node
+#define id_origem 0                                                                              // Address of this node
 
 //INITIAL CONFIGURATION OF SIM800
 
@@ -92,7 +91,6 @@ struct payload_t {
   float tensao_c;
   float tensao_r;
   char  timestamp[20];
-  bool erro_vec[5];
 };
 
 #define E_TEMP  0
@@ -219,13 +217,10 @@ void setup() {
     SerialMon.println(F("Initializing nRF24L01..."));
     SerialMon.flush();
   #endif
-  
-  SPI.begin();                                                                                    // Starts SPI protocol
-  radio.begin();                                                                                  // Starts nRF24L01
-  radio.maskIRQ(1, 1, 0);                                                                         // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(32);                                                                       // Set payload Size
-  radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
-  radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
+
+  SPI.begin();
+  mesh.setNodeID(id_origem);
+  mesh.begin();
 
   /* SD configuration*/
   
@@ -243,48 +238,18 @@ void setup() {
     SD.begin(SD_CHIP_SELECT_PIN);
   #endif
 
-  network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
-
 }
 
 void loop() {
-  network.update();                                                                               // Check the network regularly
+  mesh.update();                                                                               // Check the network regularly
+
+  mesh.DHCP();
   
   #ifdef DEBUG
     SerialMon.begin(57600);
+    SerialMon.println("Looping");
   #endif
   
-  unsigned long currentMillis = millis();
-
-   if(currentMillis - previousMillis > interval) {
-      #ifdef DEBUG
-        SerialMon.println(F("\nShutting GSM down"));
-      #endif
-
-       /* Puts gsm to sleep again */
-       sleepGSM();
-
-      #ifdef DEBUG
-        SerialMon.println(F("Shutting Arduino down"));
-        SerialMon.flush();
-        SerialMon.end();
-      #endif
-
-      attachInterrupt(digitalPinToInterrupt(interruptPin), interruptFunction, FALLING);           // Attachs the interrupt again after enabling interruptions
-      
-      LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
-
-      detachInterrupt(digitalPinToInterrupt(interruptPin));
-      
-      /* Wakes gsm up */
-      #ifdef DEBUG
-        SerialMon.begin(57600);
-        SerialMon.println(F("Arduino woke up"));
-        SerialMon.flush();
-        SerialMon.end();
-      #endif
-  }   
-
   receiveData();                                         
  
   if (dataReceived) {
@@ -366,10 +331,6 @@ void loop() {
 
 }
 
-void interruptFunction(){
-    
-}
-
 void connection(){
   #ifdef DEBUG
     SerialMon.println(F("Inicializando GSM..."));
@@ -402,8 +363,6 @@ void connection(){
 void receiveData() {
   RF24NetworkHeader header;
   
-  network.update();
-
   if(network.available()) {                               
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      

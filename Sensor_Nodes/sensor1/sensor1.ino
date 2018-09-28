@@ -1,11 +1,9 @@
 #include <LowPower.h>
 
-#include <RF24Network.h>
-#include <RF24Network_config.h>
-#include <Sync.h>
-
-#include <nRF24L01.h>
 #include <RF24.h>
+#include <RF24Network.h>
+#include <RF24Mesh.h>
+
 #include <SPI.h>
 #include <DHT.h>
 
@@ -19,17 +17,18 @@
 
 DHT dht(DHTPIN, DHTTYPE);                                       // Object of the temperature sensor
 
+//INITIAL CONFIGURATION OF NRF
 const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
-
 const int pinCSN = 9;                                           // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
 
 RF24 radio(pinCE, pinCSN);                                      // nRF24L01(+) radio attached using Getting Started board
 RF24Network network(radio);                                     // Network uses that radio
+RF24Mesh mesh(radio, network);
 
-const uint16_t id_origem = 01;                                  // Address of this node
-const uint16_t id_destino = 00;                                 // Addresses of the master node
+#define id_origem 1                                  // Address of this node
+#define id_destino 0                                 // Addresses of the master node
+
 uint16_t count = 0;
-
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
 
 struct payload_t {                                              // Structure of our payload
@@ -38,7 +37,7 @@ struct payload_t {                                              // Structure of 
   float umidade;
   float tensao_c;
   float tensao_r;
-  String timestamp;
+  char  timestamp[20];
 };
 
 /* Variables that hold our readings */
@@ -85,25 +84,27 @@ void lerTensao() {
 }
 
 void setup(void) {
-  /* nRF24L01 configuration*/ 
-  SPI.begin();                                                  // Start SPI protocol
-  radio.begin();                                                // Start nRF24L01
-  radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(32);                                     // Set payload Size
-  radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
-  radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
-  network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
+  /* nRF24L01 configuration*/
+  Serial.begin(57600);
+  SPI.begin();
+  Serial.println("Setando ID origem");
+  mesh.setNodeID(id_origem); 
+  Serial.println("Iniciando Mesh");
+  mesh.begin();
 
+  Serial.println("Configurando sensores");
   /* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
   pinMode(PORTADHT, OUTPUT);
   digitalWrite(PORTADHT, HIGH);
   delay(2000);
   digitalWrite(PORTADHT, LOW);
+  Serial.flush();
+  Serial.end();
 
 }
 
 void loop() {
-  network.update();                                            // Check the network regularly
+  mesh.update();                                            // Check the network regularly
 
   if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
     radio.flush_rx();
@@ -139,8 +140,6 @@ void interruptFunction() {
 }
 
 void enviarDados() {
-  RF24NetworkHeader header(id_destino);                   // Sets the header of the payload   
-
   /* Create the payload with the collected readings */
   payload_t payload;                                
   payload.colmeia = IDCOLMEIA;
@@ -156,15 +155,20 @@ void enviarDados() {
   }
   Serial.begin(57600);
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-  if (!network.write(header, &payload, sizeof(payload))) { 
+  if (!mesh.write(&payload,'P',sizeof(payload))) { 
     radio.flush_tx();
-    Serial.print("Pacote não enviado: ");
-    Serial.println(count);
-    Serial.flush();
-    Serial.end(); 
+    
+    if ( ! mesh.checkConnection() ) {
+      
+        Serial.println("Renewing Address");
+        mesh.renewAddress();
+        
+      } else {
+        Serial.println("Pacote não enviado, Teste OK@");
+      }
+     
   }else{
-    
-    
+        
     Serial.print("Pacote enviado: ");
     Serial.println(count);
     
