@@ -1,10 +1,10 @@
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
 #define SerialMon Serial                                                                        // Serial communication with the computer
-#define SerialAT Serial2                                                                        // Serial communication with the gsm module
+#define SerialAT Serial3                                                                        // Serial communication with the gsm module
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
-//#define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
+#define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
 
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
@@ -66,6 +66,7 @@ const char* user_MQTT = "teste@teste";                                          
 const char* pass_MQTT = "123456";                                                                 // Password for the tcp connection
 
 #define TOPIC "sensors/coleta"                                                                    // MQTT topic where we'll be sending the payloads
+#define MQTT_MAX_PACKET_SIZE 500
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -90,6 +91,7 @@ struct payload_t {
 //GLOBAL VARIABLES
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
 payload_t ArrayPayloads[ArraySize];                                                               // Array to save the payloads
+char msgBuffer[MQTT_MAX_PACKET_SIZE];
 
 byte ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
@@ -97,6 +99,8 @@ bool dataReceived;                                                              
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
+
+char cp[15];
 
 // PROTOTYPES OF FUNCTIONS - Force them to be after declarations
 String payloadToString(payload_t* tmp_pp);
@@ -153,8 +157,6 @@ void setup() {
       SerialMon.println("Initialization failed!");
     else
       SerialMon.println("Initialization done.");
-      
-    SerialMon.flush();
 
     /* Get ArrayCount from SD (if there is one) */
     if (SD.exists("ArrayCount.txt")) {
@@ -303,6 +305,7 @@ void loop() {
     #ifdef DEBUG
       SerialMon.begin(57600);
       SerialMon.println("Done!");
+      
       SerialAT.begin(57600);
     #endif
     
@@ -382,14 +385,17 @@ void receiveData() {
 
   if(network.available()) {                               
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
-     
+    
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+    #endif
     updateArrayCountFile(++ArrayCount);
     
     dataReceived = true;
     
     #ifdef DEBUG
-      SerialMon.begin(57600);
+      
       SerialMon.print(F("\nReceived data from sensor: "));
       SerialMon.println(payload.colmeia);
   
@@ -478,31 +484,91 @@ void wakeGSM() {
 }
 
 void saveToSD(payload_t* tmp_pp) {                                                     // Procedure to save the data received in the SD (backup and buffer)
-  String fileName = tmp_pp->timestamp.substring(4,6) + "_"   +                         // Gets the timestamp to create the name of the file
+  byte i = 0;
+  SerialMon.begin(57600);
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
+//  String fileName = "teste.txt";
+  sprintf(cp, "%s_%s_20%s.txt","20", "20", "20" );
+ /* String fileName = tmp_pp->timestamp.substring(4,6) + "_"   +                         // Gets the timestamp to create the name of the file
                     tmp_pp->timestamp.substring(2,4) + "_20" +
-                    tmp_pp->timestamp.substring(0,2);
-  char cp[11];
-  fileName.toCharArray(cp, 11);                                                        // Converts the string of the name to char array
+                    tmp_pp->timestamp.substring(0,2) + ".txt";*/
+//  SerialMon.print("OK ");
+//  SerialMon.println((int) ++i);
+//  strcpy(cp, fileName.c_str());                                                        // Converts the string of the name to char array
+  SerialMon.print("OK ");
+  SerialMon.print((int) ++i);
   
   /* Writes the payload data into the SD backup file */
-  file.open(cp, FILE_WRITE);
-  file.print(payloadToString(tmp_pp) + "\n");
+  #ifdef DEBUG
+//    SerialMon.begin(57600);
+    if (!file.open(cp, FILE_WRITE)) {
+      SerialMon.print("FAIL TO OPEN FILE ");
+      SerialMon.println(cp);
+    } else {
+      SerialMon.print(cp);
+      SerialMon.print(" opened with success.");
+    }
+  #else
+    file.open(cp, FILE_WRITE);
+  #endif
+  
+  String msg = "";
+  msg = payloadToString(&ArrayPayloads[ArrayCount - 1]);
+  int length = msg.length();
+  msg.toCharArray(msgBuffer,length+1);
+  file.print(msgBuffer);
+  
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
+  file.print("\n");
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
   file.close();
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
   
   /* Writes the payload data into the SD buffer file */
-  file.open("buffer.txt", FILE_WRITE);
+  #ifdef DEBUG
+    if (!file.open("buffer.txt", FILE_WRITE)) {
+      SerialMon.println("FAIL TO OPEN FILE 'buffer.txt'");
+    } else {
+      SerialMon.print("buffer.txt opened with success.");
+    }
+  #else
+    file.open("buffer.txt", FILE_WRITE);
+  #endif
   
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
   if (ArrayCount - 1 > 0) {
     file.print("/");                                                                   // Add a slash between payloads
   }
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
+
+  msg = payloadToString(&ArrayPayloads[ArrayCount - 1]);
+  length = msg.length();
+  msg.toCharArray(msgBuffer,length+1);
+  file.print(msgBuffer);
   
-  file.print(payloadToString(tmp_pp));
+  file.print(msgBuffer);
   
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
   if (ArrayCount == 12) {
     file.print('\n');                                                                    // Add a new line after 12 payloads
   }
-  
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
   file.close();
+  SerialMon.print("OK ");
+  SerialMon.println((int) ++i);
+  #ifdef DEBUG
+    SerialMon.println("DONE SAVING TO SD.");
+    SerialMon.flush();
+    SerialMon.end();
+  #endif
 }
 
 String payloadToString(payload_t* tmp_pp) {
