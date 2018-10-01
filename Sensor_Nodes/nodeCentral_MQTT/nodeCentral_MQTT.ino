@@ -1,6 +1,6 @@
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
 #define SerialMon Serial                                                                          // Serial communication with the computer
-#define SerialAT Serial2                                                                          // Serial communication with the gsm module
+#define SerialAT Serial3                                                                          // Serial communication with the gsm module
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
@@ -20,6 +20,7 @@
 
 #include <nRF24L01.h>
 #include <RF24.h>
+
 #include <SdFat.h>
 #include <SPI.h>
 
@@ -39,6 +40,7 @@ SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
 
 // File
 SdFile file;
+SdFile file2;
 
 //INITIAL CONFIGURATION OF NRF
 const int pinCE = 53;                                                                             // This pin is used to set the nRF24 to standby (0) or active mode (1)
@@ -105,6 +107,7 @@ struct payload_t {
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
 payload_t ArrayPayloads[ArraySize];                                                               // Array to save the payloads
 char msgBuffer[MQTT_MAX_PACKET_SIZE];                                                             // Buffer to send the payload
+char fileNameBuffer[20];
 
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 payload_t payload;                                                                                // Used to store the payload from the sensor node
@@ -112,6 +115,9 @@ bool dataReceived;                                                              
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
+
+uint8_t dia, mes;
+uint16_t ano;
 
 // PROTOTYPES OF FUNCTIONS - Force them to be after declarations
 String payloadToString(payload_t* tmp_pp);
@@ -212,6 +218,89 @@ void setup() {
     Rtc.Enable32kHzPin(false);
     Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);
   #endif
+
+
+  /* SD configuration*/
+  
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+    SerialMon.println(F("Initializing SD..."));
+    
+    if (!SD.begin(SD_CHIP_SELECT_PIN)){
+      SerialMon.println("Initialization failed!");
+    }else{
+      SerialMon.println("Initialization done.");
+    }     
+    
+    /* Get ArrayCount from SD (if there is one) */
+    if (SD.exists("ArrayCount.txt")) {
+      SerialMon.print("\nGetting ArrayCount from SD card... ");
+
+      if (file.open("ArrayCount.txt", FILE_READ)) {
+        char count_str[4];
+        
+        byte i = 0;
+        while (file.available()) {
+          char c = file.read();
+          
+          if (c >= 48 && c <= 57) {
+            count_str[i++] = c;
+          } else {
+            count_str[i] = '\0';
+            break;
+          }
+        }
+    
+        sscanf(count_str, "%u", &ArrayCount);
+        file.close();
+    
+        SerialMon.println("Done!");
+      } else {
+        SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
+      }
+    } else {
+        SerialMon.print("\nCreating ArrayCount.txt...");
+        
+        if (file.open("ArrayCount.txt", FILE_WRITE)) {
+          file.println((int) ArrayCount);
+          file.close();
+          SerialMon.println("Done!");
+          
+        } else {
+          SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
+        }
+    }
+    
+    SerialMon.flush();
+    SerialMon.end();
+ 
+  #else
+    SD.begin(SD_CHIP_SELECT_PIN);
+  
+    /* Get ArrayCount from SD (if there is one) */
+    if (file.open("ArrayCount.txt", FILE_READ)) {
+      char count_str[4];
+      
+      byte i = 0;
+      
+      while (file.available()) {
+        char c = file.read();
+        
+        if (c >= 48 && c <= 57) {
+          count_str[i++] = c;
+          
+        } else {
+          count_str[i] = '\0';
+          break;
+      }
+    }
+    
+      sscanf(count_str, "%u", &ArrayCount);
+      file.close();
+      
+      SerialMon.println("Done!");
+    }
+  #endif
     
   /* nRF24L01 configuration*/
   #ifdef DEBUG
@@ -310,13 +399,17 @@ void loop() {
             now.Hour(),
             now.Minute(),
             now.Second());
+
+     dia = now.Day();
+     mes = now.Month();
+     ano = now.Year();
             
     /* Save the payload in the microSD card */
     #ifdef DEBUG
       SerialMon.println("Writing payload into SD... ");
     #endif
     
-//    saveToSD(&ArrayPayloads[ArrayCount - 1]);
+    saveToSD(&ArrayPayloads[ArrayCount - 1]);
     
     #ifdef DEBUG
       SerialMon.println("Done!");
@@ -353,6 +446,7 @@ void loop() {
 
       /* Starts to save the payloads again whether the payloads were sent or not */
       ArrayCount = 0;
+      updateArrayCountFile(ArrayCount);
     }
 
     previousMillis = millis();
@@ -408,12 +502,13 @@ void receiveData() {
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
-    ++ArrayCount;                                            
+                                             
     
     dataReceived = true;
     
     #ifdef DEBUG
       SerialMon.begin(57600);
+      updateArrayCountFile(++ArrayCount); 
       SerialMon.print(F("\nReceived data from sensor: "));
       SerialMon.println(payload.colmeia);
   
@@ -437,33 +532,90 @@ void receiveData() {
   
 }
 
+void updateArrayCountFile(char val) {
+  #ifdef DEBUG
+    SerialMon.print("\nUpdating ArrayCount.txt...");
+    
+    if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
+      file.println((int) val);
+      file.close();
+      SerialMon.println("Done!");
+    } else {
+      SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
+    }
+  #else
+    if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
+      file.println((int) val);
+      file.close();
+    }
+  #endif
+}
+
 void publish(){
 
   /* Sends to the webservice all the payloads saved */
-  String msg = "";
- 
-  for(int i = 0; i < ArraySize; ++i){
-    if(i > 0){
-      msg += "/";
-    }
-    msg += payloadToString(&ArrayPayloads[i]);
-            
-  }
- 
-  int length = msg.length();
-  
-  if( (length + 7 + strlen(TOPIC)) > MQTT_MAX_PACKET_SIZE){
-    #ifdef DEBUG
-      SerialMon.println(F("The payload is too big."));
-    #endif
+  if (!file.open("buffer.txt", FILE_READ)){
+    SerialMon.print("FAIL TO OPEN FILE: ");
+    SerialMon.println("buffer.txt");
   }else{
-    msg.toCharArray(msgBuffer,length+1);
-  
-    mqtt.publish(TOPIC, msgBuffer);
-    delay(1000);
+    SerialMon.print("OPENED WITH SUCCESS: ");
+    SerialMon.println("buffer.txt");
   }
 
 
+  if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+    SerialMon.print("FAIL TO OPEN FILE: ");
+    SerialMon.println("buffer.txt");
+  }else{
+    SerialMon.print("OPENED WITH SUCCESS: ");
+    SerialMon.println("tmp_buffer.txt");
+  }
+  
+  int i;
+  
+  for (i = 0; i < (MQTT_MAX_PACKET_SIZE + 7 + strlen(TOPIC)); i++) {
+    char c;
+    
+    if (!file.available() || (c = file.read()) == '\n'){
+      break;
+    }
+    
+    msgBuffer[i] = c;
+  }
+    
+  msgBuffer[i] = '\0';
+  
+
+  /* If the packet couldn't be sent, save in a new buffer */
+  if (!mqtt.publish(TOPIC, msgBuffer)) {
+    file2.print(msgBuffer);
+    file2.print('\n');
+  }
+
+  /* Save the rest of the buffer.txt in the new buffer */
+  while (file.available()) {
+    file2.print(file.read());
+  }
+
+   /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
+  file.close();
+  file2.close();
+  
+  SD.remove("buffer.txt");
+
+  if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+    SerialMon.print("FAIL TO OPEN FILE: ");
+    SerialMon.println("buffer.txt");
+  }else{
+    SerialMon.print("OPENED WITH SUCCESS: ");
+    SerialMon.println("tmp_buffer.txt");
+  }
+  
+  
+  file2.rename(SD.vwd(), "buffer.txt");
+  
+
+   delay(1000);
 }
 
 void sleepGSM() {
@@ -478,15 +630,60 @@ void wakeGSM() {
   modem.sleepEnable(false);
 }
 
-/*
+
 void saveToSD(payload_t* tmp_pp) {
-  String fileName = tmp_pp->timestamp.substring(4,6) + "_" + tmp_pp->timestamp.substring(2,4) + "_20" + tmp_pp->timestamp.substring(0,2);
-  char cp[50];
-  fileName.toCharArray(cp, 50);
-  file.open(cp, FILE_WRITE);
-  file.println(payloadToString(tmp_pp));
+  byte i = 0;
+  
+  snprintf_P(fileNameBuffer,
+            countof(fileNameBuffer),
+            PSTR("%02u_%02u_%02u.txt"),
+            dia,
+            mes,
+            ano);
+  
+  SerialMon.println("Nome do arquivo criado!");
+  
+  /* Writes the payload data into the SD backup file */
+  String msg = payloadToString(tmp_pp);
+
+  SerialMon.println("Payload Convertido!");
+  
+  if (!file.open(fileNameBuffer, FILE_WRITE)){
+    SerialMon.print("FAIL TO OPEN FILE: ");
+    SerialMon.println(fileNameBuffer);
+  }else{
+    SerialMon.print("OPENED WITH SUCCESS: ");
+    SerialMon.println(fileNameBuffer);
+  }
+  
+  file.println(msg);
   file.close();
-}*/
+
+  SerialMon.println("Payload salvo no backup");
+  
+   /* Writes the payload data into the SD buffer file */
+  if (!file.open("buffer.txt", FILE_WRITE)){
+    SerialMon.print("FAIL TO OPEN FILE: ");
+    SerialMon.println("buffer.txt");
+  }else{
+    SerialMon.print("OPENED WITH SUCCESS: ");
+    SerialMon.println("buffer.txt");
+  }
+  
+  if (ArrayCount - 1 > 0) {
+    file.print("/");                                                                   // Add a slash between payloads
+  }
+  
+  file.print(msg);
+  
+  if (ArrayCount == 12) {
+    file.print('\n');                                                                    // Add a new line after 12 payloads
+  }
+  
+  file.close();
+
+  SerialMon.println("Payload salvo no buffer");
+}
 
 String payloadToString(payload_t* tmp_pp) {
   return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->timestamp);

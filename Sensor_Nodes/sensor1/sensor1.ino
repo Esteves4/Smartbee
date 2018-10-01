@@ -32,7 +32,7 @@ uint16_t count = 0;
 
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
 
-struct payload_t {                                              // Structure of our payload
+struct payload_t {
   int colmeia;
   float temperatura;
   float umidade;
