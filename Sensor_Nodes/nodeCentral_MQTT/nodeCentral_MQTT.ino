@@ -111,8 +111,9 @@ char msgBuffer[MQTT_MAX_PACKET_SIZE];                                           
 char fileNameBuffer[20];
 
 char ArrayCount = 0;                                                                              // Used to store the next payload    
-payload_t payload;                                                                                // Used to store the payload from the sensor node
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
+
+payload_t payload;                                                                                // Used to store the payload from the sensor node
 
 long previousMillis = 0;
 long interval = 10000; //(ms)

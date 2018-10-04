@@ -73,7 +73,7 @@ const char server[] = "200.129.43.208";                                         
 const int port = 8080;
 
 #define TOPIC "sensors/coleta"                                                                    // MQTT topic where we'll be sending the payloads
-#define MQTT_MAX_PACKET_SIZE 500                                                                  // Max size of the payload that PubSub library can send
+#define MQTT_MAX_PACKET_SIZE 600                                                                  // Max size of the payload that PubSub library can send
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -92,6 +92,7 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
+  float peso;
   char  timestamp[20];
   bool erro_vec[5];
 };
@@ -109,8 +110,9 @@ char msgBuffer[MQTT_MAX_PACKET_SIZE];                                           
 char fileNameBuffer[20];
 
 char ArrayCount = 0;                                                                              // Used to store the next payload    
-payload_t payload;                                                                                // Used to store the payload from the sensor node
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
+
+payload_t payload;                                                                                // Used to store the payload from the sensor node
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
@@ -311,7 +313,7 @@ void setup() {
   SPI.begin();                                                                                    // Starts SPI protocol
   radio.begin();                                                                                  // Starts nRF24L01
   radio.maskIRQ(1, 1, 0);                                                                         // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(32);                                                                       // Set payload Size
+  radio.setPayloadSize(sizeof(payload));                                                                       // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
@@ -680,6 +682,9 @@ String payloadToString(payload_t* tmp_pp) {
 }
 
 String payloadToJson(payload_t* tmp_pp) {
-  return "{\"valor\": " + String(tmp_pp->temperatura) + ",\"sensor_id\":{ \"id\":1},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->umidade) + ",\"sensor_id\":{ \"id\":2},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_c) + ",\"sensor_id\":{ \"id\":3},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_r) + ",\"sensor_id\":{ \"id\":4},\"colmeia_id\":" + String(tmp_pp->colmeia) + "}";
+  return "{\"valor\": " + String(tmp_pp->temperatura) + ",\"sensor_id\":{ \"id\":1},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->umidade) + ",\"sensor_id\":{ \"id\":2},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_c) + ",\"sensor_id\":{ \"id\":3},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_r) + ",\"sensor_id\":{ \"id\":4},\"colmeia_id\":" + String(tmp_pp->colmeia) + ",{\"valor\": " + String(tmp_pp->peso) + ",\"sensor_id\":{ \"id\":11},\"colmeia_id\":" + String(tmp_pp->colmeia) + "}";
+}
 
+void stringToPayload(String tmp_str, payload_t* tmp_pp) {
+  return "{\"valor\": " + String(tmp_pp->temperatura) + ",\"sensor_id\":{ \"id\":1},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->umidade) + ",\"sensor_id\":{ \"id\":2},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_c) + ",\"sensor_id\":{ \"id\":3},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_r) + ",\"sensor_id\":{ \"id\":4},\"colmeia_id\":" + String(tmp_pp->colmeia) + ",{\"valor\": " + String(tmp_pp->peso) + ",\"sensor_id\":{ \"id\":11},\"colmeia_id\":" + String(tmp_pp->colmeia) + "}";
 }
