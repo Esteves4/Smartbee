@@ -7,7 +7,7 @@
 #define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
 
 #include <TinyGsmClient.h>
-#include <PubSubClient.h>
+#include <ArduinoHttpClient.h>
 
 #include <Wire.h>        //Biblioteca para manipulação do protocolo I2C
 #include <RtcDS3231.h>      //Biblioteca para manipulação do DS3231
@@ -68,13 +68,12 @@ const char pass[] = "tim";
 
 const int DTR_PIN = 7;                                                                               // This pin is used to wake up the gsm module
 
-//INITIAL CONFIGURATION OF MQTT 
-const char* broker = "200.129.43.208";                                                            // Address of the mqtt broker
-const char* user_MQTT = "teste@teste";                                                            // Username for the tcp connection
-const char* pass_MQTT = "123456";                                                                 // Password for the tcp connection
+//INITIAL CONFIGURATION OF POST 
+const char server[] = "200.129.43.208";                                                            // Address of the post server
+const int port = 8080;
 
 #define TOPIC "sensors/coleta"                                                                    // MQTT topic where we'll be sending the payloads
-#define MQTT_MAX_PACKET_SIZE 600                                                                  // Max size of the payload that PubSub library can send
+#define MQTT_MAX_PACKET_SIZE 500                                                                  // Max size of the payload that PubSub library can send
 
 #ifdef DUMP_AT_COMMANDS
   #include <StreamDebugger.h>
@@ -84,7 +83,7 @@ const char* pass_MQTT = "123456";                                               
   TinyGsm modem(SerialAT);
 #endif
   TinyGsmClient client(modem);
-  PubSubClient mqtt(client);
+  HttpClient http(client, server, port);
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -93,7 +92,6 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
-  float peso;
   char  timestamp[20];
   bool erro_vec[5];
 };
@@ -125,7 +123,7 @@ String payloadToString(payload_t* tmp_pp);
 void saveToSD(payload_t* tmp_pp);
 
 void setup() { 
-  /* SIM800L, RTC configuration */
+  /* SIM800L configuration */
   #ifdef DEBUG
     SerialMon.begin(57600);
     delay(10);
@@ -145,6 +143,7 @@ void setup() {
     RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
     
     Rtc.Begin();
+
 
     if (!Rtc.IsDateTimeValid()) 
     {
@@ -192,7 +191,7 @@ void setup() {
     SerialMon.end();
   #else
 
-    /* SIM800L, RTC configuration*/
+    /* SIM800L configuration*/
     SerialAT.begin(57600);                                                                        // Starts serial communication
     delay(3000);                                                                                  // Waits to communication be established
     
@@ -312,7 +311,7 @@ void setup() {
   SPI.begin();                                                                                    // Starts SPI protocol
   radio.begin();                                                                                  // Starts nRF24L01
   radio.maskIRQ(1, 1, 0);                                                                         // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(sizeof(payload));                                                                       // Set payload Size
+  radio.setPayloadSize(32);                                                                       // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
@@ -477,19 +476,10 @@ void connection(){
     SerialMon.println("...");
   
     modem.gprsConnect(apn, user, pass);
-    mqtt.setServer(broker, 1883);
-    
-    SerialMon.println(F("Conectando ao broker..."));
-    mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
-    
   #else
     modem.restart();
-
     modem.waitForNetwork();
-       
     modem.gprsConnect(apn, user, pass);
-    mqtt.setServer(broker, 1883);
-    mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
   #endif
 }
 
@@ -523,10 +513,8 @@ void receiveData() {
       SerialMon.print(F(" "));
       SerialMon.println(payload.tensao_r);
       SerialMon.print(F(" "));
-      SerialMon.println(payload.peso);
-      SerialMon.print(F(" "));
       SerialMon.println(payload.timestamp);
-
+      
       SerialMon.flush();
       SerialMon.end();
     #endif 
@@ -688,5 +676,10 @@ void saveToSD(payload_t* tmp_pp) {
 }
 
 String payloadToString(payload_t* tmp_pp) {
-  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp);
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->timestamp);
+}
+
+String payloadToJson(payload_t* tmp_pp) {
+  return "{\"valor\": " + String(tmp_pp->temperatura) + ",\"sensor_id\":{ \"id\":1},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->umidade) + ",\"sensor_id\":{ \"id\":2},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_c) + ",\"sensor_id\":{ \"id\":3},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_r) + ",\"sensor_id\":{ \"id\":4},\"colmeia_id\":" + String(tmp_pp->colmeia) + "}";
+
 }

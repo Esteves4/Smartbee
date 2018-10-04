@@ -1,6 +1,6 @@
 #define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
 #define SerialMon Serial                                                                          // Serial communication with the computer
-#define SerialAT Serial2                                                                          // Serial communication with the gsm module
+#define SerialAT Serial3                                                                          // Serial communication with the gsm module
 #define TINY_GSM_DEBUG SerialMon                                  
 
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
