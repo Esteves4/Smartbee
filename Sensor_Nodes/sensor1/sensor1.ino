@@ -45,6 +45,7 @@ uint16_t count = 0;
 
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
 
+//STRUCTURE OF OUR PAYLOAD
 struct payload_t {
   int colmeia;
   float temperatura;
@@ -52,8 +53,9 @@ struct payload_t {
   float tensao_c;
   float tensao_r;
   float peso;
+  char erro_vec;
   char  timestamp[20];
-  bool erro_vec[6];
+  
 };
 
 #define E_DHT   0
@@ -62,6 +64,8 @@ struct payload_t {
 #define E_RTC   3
 #define E_PESO  4
 #define E_SD    5
+
+#define payload_size sizeof(payload) - sizeof(payload.timestamp)
 
 payload_t payload;   
 
@@ -81,7 +85,7 @@ int SENSORTENSAO = A1;
 /* Reads the temperature and the humidity from DHT sensor */
 void lerDHT() {
   if (isnan(dht.readTemperature())) {
-    payload.err_vec[E_DHT] = '1';
+    payload.erro_vec |= (1<<E_DHT);
     temperatura_lida = 0;
   }
 
@@ -90,7 +94,7 @@ void lerDHT() {
   }
 
   if (isnan(dht.readHumidity())) {
-    payload.err_vec[E_DHT] = '1';
+    payload.erro_vec |= (1<<E_DHT);
     umidade_lida = 0;
   }
 
@@ -118,7 +122,7 @@ void setup(void) {
   SPI.begin();                                                  // Start SPI protocol
   radio.begin();                                                // Start nRF24L01
   radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(sizeof(payload));                        // Set payload Size
+  radio.setPayloadSize(payload_size);                        // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
@@ -159,6 +163,7 @@ void loop() {
   delay(200);
 
   /* Performs the readings */
+  payload.erro_vec = '\0';
   lerDHT();
   lerTensao();
   lerPeso();
@@ -193,7 +198,7 @@ void enviarDados() {
   }
   Serial.begin(57600);
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-  if (!network.write(header, &payload, sizeof(payload))) { 
+  if (!network.write(header, &payload, payload_size)) { 
     radio.flush_tx();
     Serial.print("Pacote não enviado: ");
   }else{    
@@ -211,7 +216,7 @@ void lerPeso(){
 
   if(peso_lido < 0){
     if(peso_lido < -0.100){
-      payload.err_vec[E_DHT] = '1';
+      payload.erro_vec |= (1<<E_PESO);
     }
     peso_lido = 0;
   }

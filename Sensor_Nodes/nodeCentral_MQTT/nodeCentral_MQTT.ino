@@ -94,8 +94,9 @@ struct payload_t {
   float tensao_c;
   float tensao_r;
   float peso;
+  char erro_vec;
   char  timestamp[20];
-  char erro_vec[7];
+  
 };
 
 #define E_DHT   0
@@ -104,6 +105,8 @@ struct payload_t {
 #define E_RTC   3
 #define E_PESO  4
 #define E_SD    5
+
+#define payload_size sizeof(payload) - sizeof(payload.timestamp)
 
 //GLOBAL VARIABLES
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
@@ -313,7 +316,7 @@ void setup() {
   SPI.begin();                                                                                    // Starts SPI protocol
   radio.begin();                                                                                  // Starts nRF24L01
   radio.maskIRQ(1, 1, 0);                                                                         // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(sizeof(payload));                                                                       // Set payload Size
+  radio.setPayloadSize(payload_size);                                                                       // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
@@ -375,9 +378,7 @@ void loop() {
   }   
 
   receiveData();
-  
-  updateArrayCountFile(ArrayCount);                                         
- 
+
   if (dataReceived) {
     #ifdef DEBUG
       SerialMon.begin(57600);
@@ -389,7 +390,7 @@ void loop() {
     RtcDateTime now = Rtc.GetDateTime();
 
     if (!Rtc.IsDateTimeValid()) {
-       ArrayPayloads[ArrayCount - 1].timestamp[E_RTC] = '1';
+       ArrayPayloads[ArrayCount - 1].erro_vec |= (1<<E_RTC);
     }
 
     snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
@@ -497,20 +498,21 @@ void connection(){
 
 void receiveData() {
   RF24NetworkHeader header;
+  #ifdef DEBUG
+      SerialMon.begin(57600);
+  #endif
   
   network.update();
 
   if(network.available()) {                               
-    network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
+    network.read(header, &payload, payload_size);                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
-    ++ArrayCount;                                          
+    updateArrayCountFile(++ArrayCount);                                         
     
     dataReceived = true;
     
-    #ifdef DEBUG
-      SerialMon.begin(57600);
-      
+    #ifdef DEBUG    
       SerialMon.print(F("\nReceived data from sensor: "));
       SerialMon.println(payload.colmeia);
   
@@ -523,11 +525,11 @@ void receiveData() {
       SerialMon.print(F(" "));
       SerialMon.print(payload.tensao_c);
       SerialMon.print(F(" "));
-      SerialMon.println(payload.tensao_r);
+      SerialMon.print(payload.tensao_r);
       SerialMon.print(F(" "));
-      SerialMon.println(payload.peso);
+      SerialMon.print(payload.peso);
       SerialMon.print(F(" "));
-      SerialMon.println(payload.timestamp);
+      SerialMon.println(payload.erro_vec - '\0');
 
       SerialMon.flush();
       SerialMon.end();
@@ -538,7 +540,7 @@ void receiveData() {
 
 void updateArrayCountFile(char val) {
   #ifdef DEBUG
-    SerialMon.print("\nUpdating ArrayCount.txt...");
+    SerialMon.println("\nUpdating ArrayCount.txt...");
     
     if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
       file.println((int) val);
@@ -546,9 +548,9 @@ void updateArrayCountFile(char val) {
       SerialMon.println("Done!");
     } else {
       if(ArrayCount == 0){
-        ArrayPayloads[ArrayCount].timestamp[E_SD] = '1';
+        ArrayPayloads[ArrayCount].erro_vec |= (1<<E_SD);
       }else{
-        ArrayPayloads[ArrayCount-1].timestamp[E_SD] = '1';
+        ArrayPayloads[ArrayCount - 1].erro_vec |= (1<<E_SD);
       }
       
       SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
@@ -559,9 +561,9 @@ void updateArrayCountFile(char val) {
       file.close();
     }else{
       if(ArrayCount == 0){
-        ArrayPayloads[ArrayCount].timestamp[E_SD] = '1';
+        ArrayPayloads[ArrayCount].erro_vec |= (1<<E_SD);
       }else{
-        ArrayPayloads[ArrayCount-1].timestamp[E_SD] = '1';
+        ArrayPayloads[ArrayCount - 1].erro_vec |= (1<<E_SD);
       }
     }
   #endif
@@ -570,22 +572,26 @@ void updateArrayCountFile(char val) {
 void publish(){
 
   /* Sends to the webservice all the payloads saved */
-  if (!file.open("buffer.txt", FILE_READ)){
-    SerialMon.print("FAIL TO OPEN FILE: ");
-    SerialMon.println("buffer.txt");
-  }else{
-    SerialMon.print("OPENED WITH SUCCESS: ");
-    SerialMon.println("buffer.txt");
-  }
+  #ifdef DEBUG
+    if (!file.open("buffer.txt", FILE_READ)){
+      SerialMon.print("FAIL TO OPEN FILE: ");
+      SerialMon.println("buffer.txt");
+    }else{
+      SerialMon.print("OPENED WITH SUCCESS: ");
+      SerialMon.println("buffer.txt");
+    }
+  #endif
 
 
-  if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
-    SerialMon.print("FAIL TO OPEN FILE: ");
-    SerialMon.println("buffer.txt");
-  }else{
-    SerialMon.print("OPENED WITH SUCCESS: ");
-    SerialMon.println("tmp_buffer.txt");
-  }
+  #ifdef DEBUG
+    if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+      SerialMon.print("FAIL TO OPEN FILE: ");
+      SerialMon.println("buffer.txt");
+    }else{
+      SerialMon.print("OPENED WITH SUCCESS: ");
+      SerialMon.println("tmp_buffer.txt");
+    }
+  #endif
   
   int i;
   
@@ -603,7 +609,6 @@ void publish(){
   
 
   /* If the packet couldn't be sent, save in a new buffer */
-  // REMOVER ESSAS OPERAÇÕES SOBRE ARQUIVO PARA O LOOP, DEIXANDO APENAS return mqtt.publish(TOPIC, msgBuffer)
   if (!mqtt.publish(TOPIC, msgBuffer)) {
     file2.print(msgBuffer);
     file2.print('\n');
@@ -620,14 +625,15 @@ void publish(){
   
   SD.remove("buffer.txt");
 
-  if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
-    SerialMon.print("FAIL TO OPEN FILE: ");
-    SerialMon.println("buffer.txt");
-  }else{
-    SerialMon.print("OPENED WITH SUCCESS: ");
-    SerialMon.println("tmp_buffer.txt");
-  }
-  
+  #ifdef DEBUG
+    if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+      SerialMon.print("FAIL TO OPEN FILE: ");
+      SerialMon.println("buffer.txt");
+    }else{
+      SerialMon.print("OPENED WITH SUCCESS: ");
+      SerialMon.println("tmp_buffer.txt");
+    }
+  #endif
   
   file2.rename(SD.vwd(), "buffer.txt");
   
@@ -657,37 +663,56 @@ void saveToSD(payload_t* tmp_pp) {
             dia,
             mes,
             ano);
-  
-  SerialMon.println("Nome do arquivo criado!");
-  
-  /* Writes the payload data into the SD backup file */
-  String msg = payloadToString(tmp_pp);
 
-  SerialMon.println("Payload Convertido!");
+  #ifdef DEBUG
+    SerialMon.println("Nome do arquivo criado!");
+    
+    /* Writes the payload data into the SD backup file */
+    String msg = payloadToString(tmp_pp);
   
-  if (!file.open(fileNameBuffer, FILE_WRITE)){
-    tmp_pp->erro_vec[E_SD] = '1';
-    SerialMon.print("FAIL TO OPEN FILE: ");
-    SerialMon.println(fileNameBuffer);
-  }else{
-    SerialMon.print("OPENED WITH SUCCESS: ");
-    SerialMon.println(fileNameBuffer);
-  }
+    SerialMon.println("Payload Convertido!");
+    
+    if (!file.open(fileNameBuffer, FILE_WRITE)){
+      tmp_pp->erro_vec |= (1<<E_SD);
+      SerialMon.print("FAIL TO OPEN FILE: ");
+      SerialMon.println(fileNameBuffer);
+    }else{
+      SerialMon.print("OPENED WITH SUCCESS: ");
+      SerialMon.println(fileNameBuffer);
+    }
+    
+    file.println(msg);
+    file.close();
   
-  file.println(msg);
-  file.close();
-
-  SerialMon.println("Payload salvo no backup");
-  
-   /* Writes the payload data into the SD buffer file */
-  if (!file.open("buffer.txt", FILE_WRITE)){
-    tmp_pp->erro_vec[E_SD] = '1';
-    SerialMon.print("FAIL TO OPEN FILE: ");
-    SerialMon.println("buffer.txt");
-  }else{
-    SerialMon.print("OPENED WITH SUCCESS: ");
-    SerialMon.println("buffer.txt");
-  }
+    SerialMon.println("Payload salvo no backup");
+    
+     /* Writes the payload data into the SD buffer file */
+    if (!file.open("buffer.txt", FILE_WRITE)){
+       tmp_pp->erro_vec |= (1<<E_SD);
+      SerialMon.print("FAIL TO OPEN FILE: ");
+      SerialMon.println("buffer.txt");
+    }else{
+      SerialMon.print("OPENED WITH SUCCESS: ");
+      SerialMon.println("buffer.txt");
+    }
+  #else
+    
+    /* Writes the payload data into the SD backup file */
+    String msg = payloadToString(tmp_pp);
+     
+    if (!file.open(fileNameBuffer, FILE_WRITE)){
+      tmp_pp->erro_vec |= (1<<E_SD);
+    }
+    
+    file.println(msg);
+    file.close();
+     
+     /* Writes the payload data into the SD buffer file */
+    if (!file.open("buffer.txt", FILE_WRITE)){
+      tmp_pp->erro_vec |= (1<<E_SD);
+    }
+      
+  #endif 
   
   if (ArrayCount - 1 > 0) {
     file.print("/");                                                                   // Add a slash between payloads
@@ -701,9 +726,11 @@ void saveToSD(payload_t* tmp_pp) {
   
   file.close();
 
-  SerialMon.println("Payload salvo no buffer");
+  #ifdef DEBUG
+    SerialMon.println("Payload salvo no buffer");
+  #endif 
 }
 
 String payloadToString(payload_t* tmp_pp) {
-  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + String(tmp_pp->err_vec);
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(tmp_pp->erro_vec - '\0');
 }
