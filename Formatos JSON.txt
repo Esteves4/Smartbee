@@ -39,4 +39,4 @@ Formato envio do Login em /signup
   "email":"string",
   "password":"string"
 }
-.
+
