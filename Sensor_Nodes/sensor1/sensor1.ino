@@ -53,8 +53,15 @@ struct payload_t {
   float tensao_r;
   float peso;
   char  timestamp[20];
-  bool erro_vec[5];
+  bool erro_vec[6];
 };
+
+#define E_DHT   0
+#define E_TEN_C 1
+#define E_TEN_R 2
+#define E_RTC   3
+#define E_PESO  4
+#define E_SD    5
 
 payload_t payload;   
 
@@ -74,6 +81,7 @@ int SENSORTENSAO = A1;
 /* Reads the temperature and the humidity from DHT sensor */
 void lerDHT() {
   if (isnan(dht.readTemperature())) {
+    payload.err_vec[E_DHT] = '1';
     temperatura_lida = 0;
   }
 
@@ -82,6 +90,7 @@ void lerDHT() {
   }
 
   if (isnan(dht.readHumidity())) {
+    payload.err_vec[E_DHT] = '1';
     umidade_lida = 0;
   }
 
@@ -201,6 +210,9 @@ void lerPeso(){
   peso_lido = scale.get_units(10);
 
   if(peso_lido < 0){
+    if(peso_lido < -0.100){
+      payload.err_vec[E_DHT] = '1';
+    }
     peso_lido = 0;
   }
 

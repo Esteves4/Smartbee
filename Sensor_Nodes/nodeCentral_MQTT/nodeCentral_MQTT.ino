@@ -95,14 +95,15 @@ struct payload_t {
   float tensao_r;
   float peso;
   char  timestamp[20];
-  bool erro_vec[5];
+  char erro_vec[7];
 };
 
-#define E_TEMP  0
-#define E_UMID  1
-#define E_TEN_C 2
-#define E_TEN_R 3
-#define E_TIME  4
+#define E_DHT   0
+#define E_TEN_C 1
+#define E_TEN_R 2
+#define E_RTC   3
+#define E_PESO  4
+#define E_SD    5
 
 //GLOBAL VARIABLES
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
@@ -307,7 +308,6 @@ void setup() {
   #ifdef DEBUG
     SerialMon.begin(57600);                                                         
     SerialMon.println(F("Initializing nRF24L01..."));
-    SerialMon.flush();
   #endif
   
   SPI.begin();                                                                                    // Starts SPI protocol
@@ -318,7 +318,6 @@ void setup() {
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
   /* SD configuration*/
-  
   #ifdef DEBUG
     SerialMon.println(F("Initializing SD..."));
     
@@ -346,7 +345,7 @@ void loop() {
   
   unsigned long currentMillis = millis();
 
-   if(currentMillis - previousMillis > interval) {
+  if(currentMillis - previousMillis > interval) {
       #ifdef DEBUG
         SerialMon.println(F("\nShutting GSM down"));
       #endif
@@ -375,7 +374,9 @@ void loop() {
       #endif
   }   
 
-  receiveData();                                         
+  receiveData();
+  
+  updateArrayCountFile(ArrayCount);                                         
  
   if (dataReceived) {
     #ifdef DEBUG
@@ -388,7 +389,7 @@ void loop() {
     RtcDateTime now = Rtc.GetDateTime();
 
     if (!Rtc.IsDateTimeValid()) {
-       ArrayPayloads[ArrayCount - 1].timestamp[E_TIME] = 1;
+       ArrayPayloads[ArrayCount - 1].timestamp[E_RTC] = '1';
     }
 
     snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
@@ -503,13 +504,13 @@ void receiveData() {
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
-                                             
+    ++ArrayCount;                                          
     
     dataReceived = true;
     
     #ifdef DEBUG
       SerialMon.begin(57600);
-      updateArrayCountFile(++ArrayCount); 
+      
       SerialMon.print(F("\nReceived data from sensor: "));
       SerialMon.println(payload.colmeia);
   
@@ -544,12 +545,24 @@ void updateArrayCountFile(char val) {
       file.close();
       SerialMon.println("Done!");
     } else {
+      if(ArrayCount == 0){
+        ArrayPayloads[ArrayCount].timestamp[E_SD] = '1';
+      }else{
+        ArrayPayloads[ArrayCount-1].timestamp[E_SD] = '1';
+      }
+      
       SerialMon.println("FAIL! Couldn't open the file ArrayCount.txt");
     }
   #else
     if (file.open("ArrayCount.txt", O_CREAT | O_WRITE)) {
       file.println((int) val);
       file.close();
+    }else{
+      if(ArrayCount == 0){
+        ArrayPayloads[ArrayCount].timestamp[E_SD] = '1';
+      }else{
+        ArrayPayloads[ArrayCount-1].timestamp[E_SD] = '1';
+      }
     }
   #endif
 }
@@ -590,6 +603,7 @@ void publish(){
   
 
   /* If the packet couldn't be sent, save in a new buffer */
+  // REMOVER ESSAS OPERAÇÕES SOBRE ARQUIVO PARA O LOOP, DEIXANDO APENAS return mqtt.publish(TOPIC, msgBuffer)
   if (!mqtt.publish(TOPIC, msgBuffer)) {
     file2.print(msgBuffer);
     file2.print('\n');
@@ -618,7 +632,7 @@ void publish(){
   file2.rename(SD.vwd(), "buffer.txt");
   
 
-   delay(1000);
+  delay(1000);
 }
 
 void sleepGSM() {
@@ -652,6 +666,7 @@ void saveToSD(payload_t* tmp_pp) {
   SerialMon.println("Payload Convertido!");
   
   if (!file.open(fileNameBuffer, FILE_WRITE)){
+    tmp_pp->erro_vec[E_SD] = '1';
     SerialMon.print("FAIL TO OPEN FILE: ");
     SerialMon.println(fileNameBuffer);
   }else{
@@ -666,6 +681,7 @@ void saveToSD(payload_t* tmp_pp) {
   
    /* Writes the payload data into the SD buffer file */
   if (!file.open("buffer.txt", FILE_WRITE)){
+    tmp_pp->erro_vec[E_SD] = '1';
     SerialMon.print("FAIL TO OPEN FILE: ");
     SerialMon.println("buffer.txt");
   }else{
@@ -689,5 +705,5 @@ void saveToSD(payload_t* tmp_pp) {
 }
 
 String payloadToString(payload_t* tmp_pp) {
-  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp);
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + String(tmp_pp->err_vec);
 }

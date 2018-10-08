@@ -6,6 +6,8 @@
 #define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
 #define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
 
+#include "smartbeeSensors_id.h"
+
 #include <TinyGsmClient.h>
 #include <ArduinoHttpClient.h>
 
@@ -123,6 +125,7 @@ uint16_t ano;
 // PROTOTYPES OF FUNCTIONS - Force them to be after declarations
 String payloadToString(payload_t* tmp_pp);
 void saveToSD(payload_t* tmp_pp);
+String payloadToJson(payload_t* tmp_pp);
 
 void setup() { 
   /* SIM800L configuration */
@@ -622,7 +625,6 @@ void wakeGSM() {
   modem.sleepEnable(false);
 }
 
-
 void saveToSD(payload_t* tmp_pp) {
   byte i = 0;
   
@@ -643,7 +645,7 @@ void saveToSD(payload_t* tmp_pp) {
   if (!file.open(fileNameBuffer, FILE_WRITE)){
     SerialMon.print("FAIL TO OPEN FILE: ");
     SerialMon.println(fileNameBuffer);
-  }else{
+  } else {
     SerialMon.print("OPENED WITH SUCCESS: ");
     SerialMon.println(fileNameBuffer);
   }
@@ -653,11 +655,11 @@ void saveToSD(payload_t* tmp_pp) {
 
   SerialMon.println("Payload salvo no backup");
   
-   /* Writes the payload data into the SD buffer file */
+  /* Writes the payload data into the SD buffer file */
   if (!file.open("buffer.txt", FILE_WRITE)){
     SerialMon.print("FAIL TO OPEN FILE: ");
     SerialMon.println("buffer.txt");
-  }else{
+  } else {
     SerialMon.print("OPENED WITH SUCCESS: ");
     SerialMon.println("buffer.txt");
   }
@@ -669,7 +671,7 @@ void saveToSD(payload_t* tmp_pp) {
   file.print(msg);
   
   if (ArrayCount == 12) {
-    file.print('\n');                                                                    // Add a new line after 12 payloads
+    file.print('\n');                                                                  // Add a new line after 12 payloads
   }
   
   file.close();
@@ -682,7 +684,45 @@ String payloadToString(payload_t* tmp_pp) {
 }
 
 String payloadToJson(payload_t* tmp_pp) {
-  return "{\"valor\": " + String(tmp_pp->temperatura) + ",\"sensor_id\":{ \"id\":1},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->umidade) + ",\"sensor_id\":{ \"id\":2},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_c) + ",\"sensor_id\":{ \"id\":3},\"colmeia_id\":" + String(tmp_pp->colmeia) + "},{\"valor\": " + String(tmp_pp->tensao_r) + ",\"sensor_id\":{ \"id\":4},\"colmeia_id\":" + String(tmp_pp->colmeia) + ",{\"valor\": " + String(tmp_pp->peso) + ",\"sensor_id\":{ \"id\":11},\"colmeia_id\":" + String(tmp_pp->colmeia) + "}";
+  String tmp_str = "";
+  tmp_str +=  "{\"coletas\":[";
+  tmp_str +=      "{";
+  tmp_str +=          "\"valor\":"             + String(tmp_pp->temperatura)  +  ",";
+  tmp_str +=          "\"sensor_id\":{\"id\":" + String(DHT22_INTTEMP_ID)     + "},";
+  tmp_str +=          "\"colmeia_id\":"        + String(tmp_pp->colmeia)            ;
+  tmp_str +=      "},";
+  tmp_str +=      "{";
+  tmp_str +=          "\"valor\":"             + String(tmp_pp->umidade)      +  ",";
+  tmp_str +=          "\"sensor_id\":{\"id\":" + String(DHT22_INTTEMP_ID)     + "},";
+  tmp_str +=          "\"colmeia_id\":"        + String(tmp_pp->colmeia);
+  tmp_str +=      "},";
+  tmp_str +=      "{";
+  tmp_str +=          "\"valor\":"             + String(tmp_pp->tensao_c)     +  ",";
+  tmp_str +=          "\"sensor_id\":{\"id\":" + String(SENSORS_VOLTAGE_ID)   + "},";
+  tmp_str +=          "\"colmeia_id\":"        + String(tmp_pp->colmeia);
+  tmp_str +=      "},";
+  tmp_str +=      "{";
+  tmp_str +=          "\"valor\":"             + String(tmp_pp->tensao_r)     +  ",";
+  tmp_str +=          "\"sensor_id\":{\"id\":" + String(REPEATERS_VOLTAGE_ID) + "},";
+  tmp_str +=          "\"colmeia_id\":"        + String(tmp_pp->colmeia);
+  tmp_str +=      "},";
+  tmp_str +=      "{";
+  tmp_str +=          "\"valor\":"             + String(tmp_pp->peso)         +  ",";
+  tmp_str +=          "\"sensor_id\":{\"id\":" + String(WEIGHT_SENSOR_ID)     + "},";
+  tmp_str +=          "\"colmeia_id\":"        + String(tmp_pp->colmeia);
+  tmp_str +=      "}";
+  tmp_str +=  "]}";
+}
+
+String sensorMeasureToJson(int meas, byte sensorID, int colmeiaID) {
+  String tmp_str = "";
+  tmp_str +=  "{";
+  tmp_str +=      "\"valor\":"             + String(meas)         +  ",";
+  tmp_str +=      "\"sensor_id\":{\"id\":" + String(sensorId)     + "},";
+  tmp_str +=      "\"colmeia_id\":"        + String(colmeiaID);
+  tmp_str +=  "}";
+
+  return tmp_str;
 }
 
 void stringToPayload(String tmp_str, payload_t* tmp_pp) {
