@@ -116,8 +116,6 @@ bool dataReceived;                                                              
 
 payload_t payload;                                                                                // Used to store the payload from the sensor node
 
-#define payload_size sizeof(payload)-sizeof(payload.timestamp)
-
 long previousMillis = 0;
 long interval = 10000; //(ms)
 
@@ -313,7 +311,7 @@ void setup() {
   SPI.begin();                                                                                    // Starts SPI protocol
   radio.begin();                                                                                  // Starts nRF24L01
   radio.maskIRQ(1, 1, 0);                                                                         // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(payload_size);                                                                       // Set payload Size
+  radio.setPayloadSize(32);                                                                       // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
@@ -349,13 +347,16 @@ void loop() {
 
        /* Puts gsm to sleep again */
        sleepGSM();
-
+        
       #ifdef DEBUG
         SerialMon.println(F("Shutting Arduino down"));
         SerialMon.flush();
         SerialMon.end();
       #endif
-
+      
+      radio.flush_rx();
+      radio.flush_tx();
+      
       attachInterrupt(digitalPinToInterrupt(interruptPin), interruptFunction, FALLING);           // Attachs the interrupt again after enabling interruptions
       
       LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
@@ -504,7 +505,7 @@ void receiveData() {
 
   if(network.available()) {
                               
-    network.read(header, &payload, payload_size);                                   // Reads the payload received
+    network.read(header, &payload, 23);                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
     
@@ -579,6 +580,8 @@ void updateArrayCountFile(char val) {
 void publish(){
 
   /* Sends to the webservice all the payloads saved */
+  file.close();
+
   #ifdef DEBUG
     if (!file.open("buffer.txt", FILE_READ)){
       SerialMon.print("FAIL TO OPEN FILE: ");
@@ -589,19 +592,6 @@ void publish(){
     }
   #else
     file.open("buffer.txt", FILE_READ);
-  #endif
-
-
-  #ifdef DEBUG
-    if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
-      SerialMon.print("FAIL TO OPEN FILE: ");
-      SerialMon.println("tmp_buffer.txt");
-    }else{
-      SerialMon.print("OPENED WITH SUCCESS: ");
-      SerialMon.println("tmp_buffer.txt");
-    }
-  #else
-    file2.open("tmp_buffer.txt", FILE_WRITE);
   #endif
   
   int i;
@@ -617,7 +607,20 @@ void publish(){
   }
     
   msgBuffer[i] = '\0';
+
+  file2.close();
   
+  #ifdef DEBUG
+    if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+      SerialMon.print("FAIL TO OPEN FILE: ");
+      SerialMon.println("tmp_buffer.txt");
+    }else{
+      SerialMon.print("OPENED WITH SUCCESS: ");
+      SerialMon.println("tmp_buffer.txt");
+    }
+  #else
+    file2.open("tmp_buffer.txt", FILE_WRITE);
+  #endif
 
   /* If the packet couldn't be sent, save in a new buffer */
   if (!mqtt.publish(TOPIC, msgBuffer)) {

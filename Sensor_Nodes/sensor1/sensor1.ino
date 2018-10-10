@@ -54,7 +54,6 @@ struct payload_t {
   float tensao_r;
   float peso;
   char erro_vec;
-  char timestamp[20];
 };
 
 #define E_DHT   0
@@ -65,8 +64,6 @@ struct payload_t {
 #define E_SD    5
 
 payload_t payload;   
-
-#define payload_size sizeof(payload)-sizeof(payload.timestamp)
 
 /* Variables that hold our readings */
 float temperatura_lida = 0;
@@ -121,7 +118,7 @@ void setup(void) {
   SPI.begin();                                                  // Start SPI protocol
   radio.begin();                                                // Start nRF24L01
   radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(payload_size);                        // Set payload Size
+  radio.setPayloadSize(32);                        // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
   radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
@@ -197,7 +194,7 @@ void enviarDados() {
   }
   Serial.begin(57600);
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-  if (!network.write(header, &payload, payload_size)) { 
+  if (!network.write(header, &payload, sizeof(payload))) { 
     radio.flush_tx();
     Serial.print("Pacote não enviado: ");
   }else{    
@@ -205,7 +202,7 @@ void enviarDados() {
   }
 
   Serial.println(count);
-  Serial.println(payload_size);
+  Serial.println(sizeof(payload));
   Serial.flush();
   Serial.end(); 
 }
