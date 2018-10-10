@@ -95,8 +95,7 @@ struct payload_t {
   float tensao_r;
   float peso;
   char erro_vec;
-  char  timestamp[20];
-  
+  char timestamp[20]; 
 };
 
 #define E_DHT   0
@@ -105,8 +104,6 @@ struct payload_t {
 #define E_RTC   3
 #define E_PESO  4
 #define E_SD    5
-
-#define payload_size sizeof(payload) - sizeof(payload.timestamp)
 
 //GLOBAL VARIABLES
 const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
@@ -118,6 +115,8 @@ char ArrayCount = 0;                                                            
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
 
 payload_t payload;                                                                                // Used to store the payload from the sensor node
+
+#define payload_size sizeof(payload)-sizeof(payload.timestamp)
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
@@ -302,8 +301,6 @@ void setup() {
     
       sscanf(count_str, "%u", &ArrayCount);
       file.close();
-      
-      SerialMon.println("Done!");
     }
   #endif
     
@@ -341,15 +338,12 @@ void setup() {
 
 void loop() {
   network.update();                                                                               // Check the network regularly
-  
-  #ifdef DEBUG
-    SerialMon.begin(57600);
-  #endif
-  
+    
   unsigned long currentMillis = millis();
 
   if(currentMillis - previousMillis > interval) {
       #ifdef DEBUG
+        SerialMon.begin(57600);
         SerialMon.println(F("\nShutting GSM down"));
       #endif
 
@@ -421,7 +415,7 @@ void loop() {
     
     /* Check if the array is full, if it is, sends all the payloads to the webservice */
 
-    if(ArrayCount == ArraySize){
+    if(ArrayCount >= ArraySize){
       wakeGSM();                                                                                 // Wakes the gsm                                                            
       delay(1000);                                                                               // Waits for the gsm's startup
       
@@ -453,13 +447,14 @@ void loop() {
     }
 
     previousMillis = millis();
+    #ifdef DEBUG
+      SerialMon.flush();
+      SerialMon.end();
+    #endif
     
   }
 
-  #ifdef DEBUG
-      SerialMon.flush();
-      SerialMon.end();
-  #endif
+
 
 }
 
@@ -469,8 +464,12 @@ void interruptFunction(){
 
 void connection(){
   #ifdef DEBUG
-    SerialMon.println(F("Inicializando GSM..."));
-    modem.restart();  
+    SerialMon.print(F("Inicializando GSM..."));
+    
+    if(!modem.restart()){
+      SerialMon.println(F("Failed"));
+      return;
+    }
 
     SerialMon.println(F("Aguardando rede..."));
     modem.waitForNetwork();
@@ -486,7 +485,9 @@ void connection(){
     mqtt.connect("CentralNode", user_MQTT, pass_MQTT);
     
   #else
-    modem.restart();
+    if(!modem.restart()){
+      return;
+    }
 
     modem.waitForNetwork();
        
@@ -498,16 +499,19 @@ void connection(){
 
 void receiveData() {
   RF24NetworkHeader header;
-  #ifdef DEBUG
-      SerialMon.begin(57600);
-  #endif
-  
+ 
   network.update();
 
-  if(network.available()) {                               
+  if(network.available()) {
+                              
     network.read(header, &payload, payload_size);                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
+    
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+    #endif 
+    
     updateArrayCountFile(++ArrayCount);                                         
     
     dataReceived = true;
@@ -533,8 +537,11 @@ void receiveData() {
 
       SerialMon.flush();
       SerialMon.end();
+ 
     #endif 
   }
+
+
   
 }
 
@@ -580,17 +587,21 @@ void publish(){
       SerialMon.print("OPENED WITH SUCCESS: ");
       SerialMon.println("buffer.txt");
     }
+  #else
+    file.open("buffer.txt", FILE_READ);
   #endif
 
 
   #ifdef DEBUG
     if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
       SerialMon.print("FAIL TO OPEN FILE: ");
-      SerialMon.println("buffer.txt");
+      SerialMon.println("tmp_buffer.txt");
     }else{
       SerialMon.print("OPENED WITH SUCCESS: ");
       SerialMon.println("tmp_buffer.txt");
     }
+  #else
+    file2.open("tmp_buffer.txt", FILE_WRITE);
   #endif
   
   int i;
@@ -628,7 +639,7 @@ void publish(){
   #ifdef DEBUG
     if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
       SerialMon.print("FAIL TO OPEN FILE: ");
-      SerialMon.println("buffer.txt");
+      SerialMon.println("tmp_buffer.txt");
     }else{
       SerialMon.print("OPENED WITH SUCCESS: ");
       SerialMon.println("tmp_buffer.txt");

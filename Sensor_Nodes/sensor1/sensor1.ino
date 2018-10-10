@@ -54,8 +54,7 @@ struct payload_t {
   float tensao_r;
   float peso;
   char erro_vec;
-  char  timestamp[20];
-  
+  char timestamp[20];
 };
 
 #define E_DHT   0
@@ -65,9 +64,9 @@ struct payload_t {
 #define E_PESO  4
 #define E_SD    5
 
-#define payload_size sizeof(payload) - sizeof(payload.timestamp)
-
 payload_t payload;   
+
+#define payload_size sizeof(payload)-sizeof(payload.timestamp)
 
 /* Variables that hold our readings */
 float temperatura_lida = 0;
@@ -206,7 +205,7 @@ void enviarDados() {
   }
 
   Serial.println(count);
-  Serial.println(sizeof(payload));
+  Serial.println(payload_size);
   Serial.flush();
   Serial.end(); 
 }
