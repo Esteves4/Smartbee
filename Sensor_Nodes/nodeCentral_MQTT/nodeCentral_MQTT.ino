@@ -9,8 +9,8 @@
 #include <TinyGsmClient.h>
 #include <PubSubClient.h>
 
-#include <Wire.h>        //Biblioteca para manipulação do protocolo I2C
-#include <RtcDS3231.h>      //Biblioteca para manipulação do DS3231
+#include <Wire.h>           // Biblioteca para manipulação do protocolo I2C
+#include <RtcDS3231.h>      // Biblioteca para manipulação do DS3231
 
 #include <LowPower.h>
 
@@ -580,8 +580,6 @@ void updateArrayCountFile(char val) {
 void publish(){
 
   /* Sends to the webservice all the payloads saved */
-  file.close();
-
   #ifdef DEBUG
     if (!file.open("buffer.txt", FILE_READ)){
       SerialMon.print("FAIL TO OPEN FILE: ");
@@ -607,8 +605,6 @@ void publish(){
   }
     
   msgBuffer[i] = '\0';
-
-  file2.close();
   
   #ifdef DEBUG
     if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
@@ -630,9 +626,10 @@ void publish(){
 
   /* Save the rest of the buffer.txt in the new buffer */
   while (file.available()) {
-    file2.print(file.read());
+    char tmp = file.read();
+    file2.print(tmp);
   }
-
+ 
    /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
   file.close();
   file2.close();
@@ -650,7 +647,7 @@ void publish(){
   #endif
   
   file2.rename(SD.vwd(), "buffer.txt");
-  
+  file2.close();
 
   delay(1000);
 }
@@ -746,5 +743,5 @@ void saveToSD(payload_t* tmp_pp) {
 }
 
 String payloadToString(payload_t* tmp_pp) {
-  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(tmp_pp->erro_vec - '\0');
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp)/* "," + String(tmp_pp->erro_vec - '\0')*/;
 }
