@@ -323,7 +323,7 @@ void setup() {
       SerialMon.println("Initialization failed!");
     else
       SerialMon.println("Initialization done.");
-      SerialMon.println("LOOP: ");
+      
     SerialMon.flush();
     SerialMon.end();
   #else
@@ -336,7 +336,7 @@ void setup() {
 
 void loop() {
   network.update();                                                                               // Check the network regularly
-
+    
   receiveData();
 
   if (dataReceived) {
@@ -399,13 +399,13 @@ void loop() {
         delay(1000);
 
         SerialMon.println(F("\nShutting GSM down"));
-        
+
       #else
         connection();
         publish(); 
         delay(1000);
       #endif
-
+    
       /* Puts gsm to sleep again */
       sleepGSM();
 
