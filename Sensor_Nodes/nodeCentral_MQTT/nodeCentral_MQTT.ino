@@ -351,6 +351,8 @@ void loop() {
 
     if (!Rtc.IsDateTimeValid()) {
        ArrayPayloads[ArrayCount - 1].erro_vec |= (1<<E_RTC);
+
+       //Tratar problemas no RTC, solicitar hora do GSM, caso dê erro, definir hora padrão.
     }
 
     snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
@@ -547,73 +549,150 @@ void publish(){
     if (!file.open("buffer.txt", FILE_READ)){
       SerialMon.print("FAIL TO OPEN FILE: ");
       SerialMon.println("buffer.txt");
+
+      /* Sends to the webservice all the payloads saved */
+      String msg = "";
+      int length;
+     
+      for(int i = 0; i < ArraySize; i++){
+        if(i > 0){
+          msg += "/";
+        }
+        msg += payloadToString(&ArrayPayloads[i]); 
+      }
+     
+      length = msg.length();
+      msg.toCharArray(msgBuffer,length+1);
+      
+      mqtt.publish(TOPIC, msgBuffer);
+      delay(1000);
+
     }else{
       SerialMon.print("OPENED WITH SUCCESS: ");
       SerialMon.println("buffer.txt");
+
+      int i;
+  
+      for (i = 0; i < (MQTT_MAX_PACKET_SIZE + 7 + strlen(TOPIC)); i++) {
+        char c;
+        
+        if (!file.available() || (c = file.read()) == '\n'){
+          break;
+        }
+        
+        msgBuffer[i] = c;
+      }
+        
+      msgBuffer[i] = '\0';
+
+      if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+        SerialMon.print("FAIL TO OPEN FILE: ");
+        SerialMon.println("tmp_buffer.txt");
+      }else{
+        SerialMon.print("OPENED WITH SUCCESS: ");
+        SerialMon.println("tmp_buffer.txt");
+
+        /* If the packet couldn't be sent, save in a new buffer */
+        if (!mqtt.publish(TOPIC, msgBuffer)){
+          file2.print(msgBuffer);
+          file2.print('\n');
+        }
+
+        ++i;
+        /* Save the rest of the buffer.txt in the new buffer */
+        while (file.available()) {
+          file.read(msgBuffer, i);
+          msgBuffer[i] = '\0';
+          file2.print(msgBuffer);
+        }
+       
+         /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
+        file.close();
+        file2.close();
+        
+        SD.remove("buffer.txt");
+        
+        if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
+          SerialMon.print("FAIL TO OPEN FILE: ");
+          SerialMon.println("tmp_buffer.txt");
+        }else{
+          SerialMon.print("OPENED WITH SUCCESS: ");
+          SerialMon.println("tmp_buffer.txt");
+
+          file2.rename(SD.vwd(), "buffer.txt");
+          file2.close();
+        
+          delay(1000);
+        }
+        
+      }
+      
     }
   #else
-    file.open("buffer.txt", FILE_READ);
-  #endif
+    if(file.open("buffer.txt", FILE_READ)){
+      int i;
   
-  int i;
-  
-  for (i = 0; i < (MQTT_MAX_PACKET_SIZE + 7 + strlen(TOPIC)); i++) {
-    char c;
-    
-    if (!file.available() || (c = file.read()) == '\n'){
-      break;
-    }
-    
-    msgBuffer[i] = c;
-  }
-    
-  msgBuffer[i] = '\0';
-  
-  #ifdef DEBUG
-    if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
-      SerialMon.print("FAIL TO OPEN FILE: ");
-      SerialMon.println("tmp_buffer.txt");
+      for (i = 0; i < (MQTT_MAX_PACKET_SIZE + 7 + strlen(TOPIC)); i++) {
+        char c;
+        
+        if (!file.available() || (c = file.read()) == '\n'){
+          break;
+        }
+        
+        msgBuffer[i] = c;
+      }
+        
+      msgBuffer[i] = '\0';
+      
+      if(file2.open("tmp_buffer.txt", FILE_WRITE)){
+        /* If the packet couldn't be sent, save in a new buffer */
+        if (!mqtt.publish(TOPIC, msgBuffer)){
+          file2.print(msgBuffer);
+          file2.print('\n');
+        }
+
+        ++i;
+        /* Save the rest of the buffer.txt in the new buffer */
+        while (file.available()) {
+          file.read(msgBuffer, i);
+          msgBuffer[i] = '\0';
+          file2.print(msgBuffer);
+        }
+       
+         /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
+        file.close();
+        file2.close();
+        
+        SD.remove("buffer.txt");
+        
+        if (file2.open("tmp_buffer.txt", FILE_WRITE)){
+          file2.rename(SD.vwd(), "buffer.txt");
+          file2.close();
+        
+          delay(1000);
+        }       
+      }
     }else{
-      SerialMon.print("OPENED WITH SUCCESS: ");
-      SerialMon.println("tmp_buffer.txt");
-    }
-  #else
-    file2.open("tmp_buffer.txt", FILE_WRITE);
-  #endif
-
-  /* If the packet couldn't be sent, save in a new buffer */
-  if (!mqtt.publish(TOPIC, msgBuffer)) {
-    file2.print(msgBuffer);
-    file2.print('\n');
-  }
-  ++i;
-  /* Save the rest of the buffer.txt in the new buffer */
-  while (file.available()) {
-    file.read(msgBuffer, i);
-    msgBuffer[i] = '\0';
-    file2.print(msgBuffer);
-  }
- 
-   /* Turns new buffer (tmp_buffer.txt) into THE buffer (buffer.txt) */
-  file.close();
-  file2.close();
-  
-  SD.remove("buffer.txt");
-
-  #ifdef DEBUG
-    if (!file2.open("tmp_buffer.txt", FILE_WRITE)){
-      SerialMon.print("FAIL TO OPEN FILE: ");
-      SerialMon.println("tmp_buffer.txt");
-    }else{
-      SerialMon.print("OPENED WITH SUCCESS: ");
-      SerialMon.println("tmp_buffer.txt");
+      /* Sends to the webservice all the payloads saved */
+      String msg = "";
+      int length;
+     
+      for(int i = 0; i < ArraySize; i++){
+        if(i > 0){
+          msg += "/";
+        }
+        msg += payloadToString(&ArrayPayloads[i]); 
+      }
+     
+      length = msg.length();
+      msg.toCharArray(msgBuffer,length+1);
+      
+      mqtt.publish(TOPIC, msgBuffer);
+      delay(1000);
+      
     }
   #endif
   
-  file2.rename(SD.vwd(), "buffer.txt");
-  file2.close();
-
-  delay(1000);
 }
 
 void sleepGSM() {

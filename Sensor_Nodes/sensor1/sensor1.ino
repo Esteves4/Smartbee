@@ -54,6 +54,7 @@ struct payload_t {
   float tensao_r;
   float peso;
   char erro_vec;
+  char timestamp[20];
 };
 
 #define E_DHT   0
