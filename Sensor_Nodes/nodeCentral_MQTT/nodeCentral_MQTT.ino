@@ -111,6 +111,8 @@ payload_t ArrayPayloads[ArraySize];                                             
 char msgBuffer[MQTT_MAX_PACKET_SIZE];                                                             // Buffer to send the payload
 char fileNameBuffer[20];
 
+char bufferErro[4];
+
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
 
@@ -351,11 +353,51 @@ void loop() {
 
     if (!Rtc.IsDateTimeValid()) {
        ArrayPayloads[ArrayCount - 1].erro_vec |= (1<<E_RTC);
+       ArrayPayloads[ArrayCount - 1].erro_vec |= (1<<E_RTC);
 
-       //Tratar problemas no RTC, solicitar hora do GSM, caso dê erro, definir hora padrão.
-    }
+       wakeGSM();                                                                                 // Wakes the gsm                                                            
+       delay(1000);
 
-    snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
+       if (modem.testAT(5000L)) {
+          String gsmTime = modem.getGSMDateTime(DATE_FULL);
+       
+          gsmTime.remove(2,1);
+          gsmTime.remove(4,1);
+          gsmTime.remove(6,1);
+          gsmTime.remove(8,1);
+          gsmTime.remove(10,1);
+          gsmTime.remove(12);
+          gsmTime = "20" + gsmTime;
+          
+          int length = gsmTime.length();
+          gsmTime.toCharArray(ArrayPayloads[ArrayCount - 1].timestamp,length+1);
+          
+          ano = gsmTime.substring(0,4).toInt();
+          mes = gsmTime.substring(4,6).toInt();
+          dia = gsmTime.substring(6,8).toInt();
+          
+       }else{
+           dia = 01;
+           mes = 01;
+           ano = 2000;
+           
+
+           snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
+            countof(ArrayPayloads[ArrayCount - 1].timestamp),
+            PSTR("%04u%02u%02u%02u%02u%02u"),
+            ano,
+            mes,
+            dia,
+            0,
+            0,
+            0);
+        
+       }
+       
+       sleepGSM();
+
+    }else{
+      snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
             countof(ArrayPayloads[ArrayCount - 1].timestamp),
             PSTR("%04u%02u%02u%02u%02u%02u"),
             now.Year(),
@@ -364,11 +406,13 @@ void loop() {
             now.Hour(),
             now.Minute(),
             now.Second());
-
+  
      dia = now.Day();
      mes = now.Month();
      ano = now.Year();
-            
+      
+    }
+
     /* Save the payload in the microSD card */
     #ifdef DEBUG
       SerialMon.println("Writing payload into SD... ");
@@ -786,5 +830,12 @@ void saveToSD(payload_t* tmp_pp) {
 }
 
 String payloadToString(payload_t* tmp_pp) {
-  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(tmp_pp->erro_vec - '\0');
+  int erros = tmp_pp->erro_vec - '\0';
+  
+  snprintf(bufferErro,
+            countof(bufferErro),
+            "%03d",
+            erros);
+    
+  return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(bufferErro);
 }
