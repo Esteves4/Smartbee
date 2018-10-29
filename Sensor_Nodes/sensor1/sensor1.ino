@@ -26,6 +26,12 @@ HX711 scale(DOUT, CLK);
 float SCALE_FACTOR = -175400.00;                                // Change this value for your calibration factor found
 double offset = -60234.00;                                           // Set offset for the balance to work properly
 
+#include "TimerOne.h"
+uint16_t buffer[500];
+volatile uint16_t i = 0;
+uint16_t j;
+
+
 //INITIAL CONFIGURATION OF DHT
 #define DHTPIN A0                                               // Pin DATA of the DHT sensor.
 #define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
@@ -65,6 +71,10 @@ struct payload_t {
 #define E_SD    5
 
 payload_t payload;   
+
+void callback(){
+  buffer[i++] = analogRead(A0);
+}
 
 /* Variables that hold our readings */
 float temperatura_lida = 0;
@@ -114,6 +124,8 @@ void lerTensao() {
 
 void setup(void) {
 
+  Timer1.initialize(250);         // initialize timer1, and set a 1/2 second period
+  Timer1.attachInterrupt(callback,250);  // attaches callback() as a timer overflow interrupt
 
   /* nRF24L01 configuration*/ 
   SPI.begin();                                                  // Start SPI protocol
@@ -170,6 +182,15 @@ void loop() {
   /* Turn off the sensors */
   digitalWrite(PORTADHT, LOW);
   //scale.power_down();
+
+  if (i == 500) {
+    Timer1.detachInterrupt();
+    for (j = 0; j < 500; j++) {
+      Serial.println(buffer[j]);
+    }
+
+    i = 0;
+  }
 }
 
 void interruptFunction() {

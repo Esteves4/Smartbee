@@ -31,16 +31,18 @@ const uint8_t SOFT_SCK_PIN  = 12;
 const uint8_t SD_CHIP_SELECT_PIN = 13;
 const int8_t  DISABLE_CHIP_SELECT = -1;
 
-//INITIAL CONFIGURATION OF RTC 
-RtcDS3231<TwoWire> Rtc(Wire);                                                                                       // Criação do objeto do tipo DS3231
-#define countof(a) (sizeof(a) / sizeof(a[0]))
-
 // SdFat software SPI template
 SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
 
 // File
 SdFile file;
 SdFile file2;
+
+//INITIAL CONFIGURATION OF RTC 
+RtcDS3231<TwoWire> Rtc(Wire);                                                                                       // Criação do objeto do tipo DS3231
+#define countof(a) (sizeof(a) / sizeof(a[0]))
+
+
 
 //INITIAL CONFIGURATION OF NRF
 const int pinCE = 53;                                                                             // This pin is used to set the nRF24 to standby (0) or active mode (1)
