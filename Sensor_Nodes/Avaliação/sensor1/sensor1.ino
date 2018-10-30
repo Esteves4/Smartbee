@@ -9,9 +9,7 @@
 #include <SPI.h>
 #include <DHT.h>
 
-#include <HX711.h>                                              // You must have this library in your arduino library folder
-
-#include <MicrochipSRAM.h>  
+//#include <MicrochipSRAM.h>  
 
 #include "TimerOne.h"
  
@@ -25,10 +23,6 @@
 #define DOUT  3
 #define CLK  4
 
-HX711 scale(DOUT, CLK);
-
-float SCALE_FACTOR = -175400.00;                                // Change this value for your calibration factor found
-double offset = -60234.00;                                           // Set offset for the balance to work properly
 
 volatile uint16_t i = 0;
 uint16_t j;
@@ -42,7 +36,7 @@ DHT dht(DHTPIN, DHTTYPE);                                       // Object of the
 //INITIAL CONFIGURATION OF 23LC1024 - SRAM
 #define SRAM_SS_PIN 7
 
-static MicrochipSRAM memory(SRAM_SS_PIN);
+//static MicrochipSRAM memory(SRAM_SS_PIN);
 
 //INITIAL CONFIGURATION OF NRF24L01
 const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
@@ -93,7 +87,7 @@ float peso_lido = 0;
 
 /* Analogic ports for reading */
 int SENSORSOM = A0;
-int SENSORTENSAO = A1;
+int SENSORTENSAO = A2;
 //int SENSORCO2 = A4;
 
 /* Audio Variables */
@@ -103,7 +97,7 @@ volatile uint8_t bufferADC_H;
 volatile uint8_t bufferADC_L;
 
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
-
+bool sleep = false;
 /* Reads the temperature and the humidity from DHT sensor */
 void lerDHT() {
   if (isnan(dht.readTemperature())) {
@@ -137,13 +131,7 @@ void lerTensao() {
   tensao_lida = ((valor_lido_tensao * 0.00489) * 5);
 }
 
-void setup(void) {
-
-  /* SRAM configuration*/
-  if(memory.SRAMBytes==0){
-    payload.erro_vec |= (1<<E_SRAM);
-  }
-
+void adc_freeRunning(){
   ADCSRA = 0;             // clear ADCSRA register
   ADCSRB = 0;             // clear ADCSRB register
   ADMUX |= (0 & 0x07);    // set A0 analog input pin
@@ -151,31 +139,48 @@ void setup(void) {
   ADCSRA |= (1 << ADPS2) | (1 << ADPS1);                     //  64 prescaler for 19.2 KHz
   
   ADCSRA |= (1 << ADATE); // enable auto trigger
-  //ADCSRA |= (1 << ADIE);  // enable interrupts when measurement complete
+  ADCSRA |= (1 << ADIE);  // enable interrupts when measurement complete
   ADCSRA |= (1 << ADEN);  // enable ADC
   ADCSRA |= (1 << ADSC);  // start ADC measurements
   
+}
+
+void setup(void) {
+  Serial.begin(57600);   
+  /* SRAM configuration*/
+ /* if(memory.SRAMBytes==0){
+    Serial.println("Erro memoria");
+    payload.erro_vec |= (1<<E_SRAM);
+  }*/
+ 
+
   /* nRF24L01 configuration*/ 
-  SPI.begin();                                                  // Start SPI protocol
+                                                        
+  Serial.println(F("Initializing nRF24L01..."));
+  
   radio.begin();                                                // Start nRF24L01
   radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
   radio.setPayloadSize(32);                        // Set payload Size
   radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
-  radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
+  radio.setDataRate(RF24_2MBPS);                              // Set transmission rate
   network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
-
+                                                       
+  Serial.println(F("Done"));
+  Serial.flush();
+  Serial.end();
+  
   /* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
   pinMode(PORTADHT, OUTPUT);
   digitalWrite(PORTADHT, HIGH);
   
-  /* HX711 configuration*/
-  scale.set_scale(SCALE_FACTOR);
-  scale.set_offset(offset);
-    
   delay(2000);
   digitalWrite(PORTADHT, LOW);
 
+  /* ADC configuration*/ 
+  adc_freeRunning();
+  
 }
+
 
 ISR(ADC_vect){
   bufferADC_L = ADCL;
@@ -185,8 +190,9 @@ ISR(ADC_vect){
 }
 
 void loop() {
-   network.update();                                            // Check the network regularly
 
+  network.update();                                            // Check the network regularly
+  
   if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
     radio.flush_rx();
   } else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
@@ -194,7 +200,10 @@ void loop() {
   }
    
   if(strAddr >= 8000){
-    ADCSRA &= ~(1 << ADIE);
+    Serial.begin(57600);
+    ADCSRA = 0;             
+    ADCSRB = 0; 
+    Serial.println("Stopped interruption");
     strAddr = 0;
 
     /* Turn on the sensors */
@@ -205,26 +214,47 @@ void loop() {
     payload.erro_vec = '\0';
     
     lerDHT();
+    Serial.println("DHT reading");
     lerTensao();
-    lerPeso();
-
+    Serial.println("Voltage reading");
+    
     /* Turn off the sensors */
     digitalWrite(PORTADHT, LOW);
     
+    Serial.println("Sending data");
+    Serial.flush();
+    Serial.end();
     enviarDados();                                              // Sends the data to the gateway
-  
+    Serial.begin(57600);
+    Serial.println("Done");
+    Serial.flush();
+    Serial.end();
     for(uint32_t j = 0; j < 8000; j = j + 2){
-      memory.get(j, bufferADC);
+      //memory.get(j, bufferADC);
+      bufferADC = j;
       enviarAudio();
-      Serial.println(bufferADC);
+      Serial.begin(57600);
+      Serial.println(j);
+      Serial.flush();
+      Serial.end();
     }
+    sleep = true;
     
   }else if(interrupted){
-      bufferADC = (bufferADC_H << 8)|bufferADC_L;
-      memory.put(strAddr, bufferADC);
+      Serial.begin(57600);                                                         
+      
+      //bufferADC = (bufferADC_H << 8)|bufferADC_L;
+      //memory.put(strAddr, bufferADC);
       strAddr += 2;
       interrupted = false;
-  }else{
+      /*Serial.println(bufferADC);
+      Serial.flush();
+      Serial.end();*/
+  }else if(sleep){
+      Serial.begin(57600);                                                         
+      Serial.println(F("Sleeping..."));
+      Serial.flush();
+      Serial.end();
     
       radio.powerDown();                                           // Calls the function to power down the nRF24L01
       
@@ -233,7 +263,10 @@ void loop() {
       }
       
       radio.powerUp();                                             // Calls the function to power up the nRF24L01
-
+      Serial.begin(57600);                                                         
+      Serial.println(F("Waking..."));
+      Serial.flush();
+      Serial.end();
       ADCSRA |= (1 << ADIE);
   }
    
@@ -277,6 +310,7 @@ void enviarAudio() {
   payload_audio.audio = bufferADC;
 
   Serial.begin(57600);
+  
   /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
   if (!network.write(header, &payload_audio, sizeof(payload_audio))) { 
     radio.flush_tx();
@@ -284,28 +318,9 @@ void enviarAudio() {
   }else{    
     Serial.print("Pacote audio enviado: "); 
   }
-
+  Serial.println(bufferADC); 
   Serial.flush();
   Serial.end(); 
-}
-
-void lerPeso(){
-  peso_lido = scale.get_units(10);
-
-  if(peso_lido < 0){
-    if(peso_lido < -0.100){
-      payload.erro_vec |= (1<<E_PESO);
-    }
-    peso_lido = 0;
-  }
-
-  Serial.begin(57600);
-  Serial.print("Weight: ");
-  Serial.print(peso_lido, 3);                                // Up to 3 decimal points
-  Serial.println(" kg");                                        // Change this to kg and re-adjust the calibration factor if you follow lbs
-  Serial.flush();
-  Serial.end();
-   
 }
 
 float lerBateria(byte pin) {

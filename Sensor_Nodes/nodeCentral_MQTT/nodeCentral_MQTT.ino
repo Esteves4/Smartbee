@@ -100,6 +100,11 @@ struct payload_t {
   char timestamp[20]; 
 };
 
+struct payload_a {
+  int colmeia;
+  uint16_t audio;
+};
+
 #define E_DHT   0
 #define E_TEN_C 1
 #define E_TEN_R 2
@@ -117,8 +122,10 @@ char bufferErro[4];
 
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
+bool audioReceived;
 
-payload_t payload;                                                                                // Used to store the payload from the sensor node
+payload_t payload;
+payload_a payload_audio; 
 
 long previousMillis = 0;
 long interval = 10000; //(ms)
@@ -468,6 +475,8 @@ void loop() {
       SerialMon.end();
     #endif
     
+  }else if(audioReceived){
+    Serial.println(payload_audio.audio);
   }
 
 
@@ -515,7 +524,60 @@ void receiveData() {
   network.update();
 
   if(network.available()) {
-                              
+
+    RF24NetworkHeader header;                            // If so, take a look at it
+    network.peek(header);
+
+    switch (header.type){                              // Dispatch the message to the correct handler.
+        case 'A': handle_audio(header); break;
+        case 'P': handle_packet(header); break;
+    }
+
+
+  } 
+}
+
+void handle_audio(RF24NetworkHeader& header){
+  
+    network.read(header, &payload_a, sizeof(payload_a));                                   // Reads the payload received
+     
+    ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
+    
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+    #endif 
+    
+    updateArrayCountFile(++ArrayCount);                                         
+    
+    audioReceived = true;
+    
+    #ifdef DEBUG    
+      SerialMon.print(F("\nReceived data from sensor: "));
+      SerialMon.println(payload.colmeia);
+  
+      SerialMon.println(F("The data: "));
+      SerialMon.print(payload.colmeia);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.temperatura);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.umidade);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.tensao_c);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.tensao_r);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.peso);
+      SerialMon.print(F(" "));
+      SerialMon.println(payload.erro_vec - '\0');
+
+      SerialMon.flush();
+      SerialMon.end();
+ 
+    #endif 
+}
+
+void handle_packet(RF24NetworkHeader& header){
+  
     network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
      
     ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
@@ -551,10 +613,6 @@ void receiveData() {
       SerialMon.end();
  
     #endif 
-  }
-
-
-  
 }
 
 void updateArrayCountFile(char val) {
