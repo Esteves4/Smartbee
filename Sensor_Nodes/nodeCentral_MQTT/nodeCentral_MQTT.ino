@@ -63,15 +63,15 @@ RF24Network network(radio);                                                     
 
 /* ### APN configurations ###  */
 
-const char apn[]  = "claro.com.br";
-const char user[] = "claro";
-const char pass[] = "claro";
+//const char apn[]  = "claro.com.br";
+//const char user[] = "claro";
+//const char pass[] = "claro";
 
-/*
+
 const char apn[]  = "timbrasil.br";
 const char user[] = "tim";
 const char pass[] = "tim";
-*/
+
 
 const int DTR_PIN = 7;                                                                               // This pin is used to wake up the gsm module
 
@@ -80,8 +80,8 @@ const char* broker = "200.129.43.208";                                          
 const char* user_MQTT = "teste@teste";                                                            // Username for the tcp connection
 const char* pass_MQTT = "123456";                                                                 // Password for the tcp connection
 
-#define TOPIC "sensors/coleta"                                                                    // MQTT topic where we'll be sending the payloads
-#define TOPIC_AUDIO "sensors/audio"
+#define TOPIC "sensors/coleta_data"                                                                    // MQTT topic where we'll be sending the payloads
+#define TOPIC_AUDIO "sensors/coleta_audio"
 #define MQTT_MAX_PACKET_SIZE 600                                                                  // Max size of the payload that PubSub library can send
 
 #ifdef DUMP_AT_COMMANDS
@@ -124,7 +124,7 @@ payload_t ArrayPayloads[ArraySize];                                             
 char msgBuffer[MQTT_MAX_PACKET_SIZE];                                                             // Buffer to send the payload
 char fileNameBuffer[22];
 char fileNameAudioBuffer[22];
-char bufferErro[4];
+char formatBuffer[5];
 
 char ArrayCount = 0;                                                                              // Used to store the next payload    
 bool dataReceived;                                                                                // Used to know whether a payload was received or not
@@ -363,9 +363,20 @@ void setup() {
 }
 
 void loop() {
-	network.update();                                                                               // Check the network regularly
-
-	receiveData();
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+  #endif
+  wakeGSM();
+  connection();
+  publish_audio();
+  #ifdef DEBUG
+    SerialMon.flush();
+    SerialMon.end();
+  #endif
+  
+//	network.update();                                                                               // Check the network regularly
+//
+//	receiveData();
 
 	if (dataReceived) {
 		#ifdef DEBUG
@@ -856,14 +867,22 @@ void publish_audio(){
         file2.print(msgBuffer);
         file2.print('\n');
       }
-
-      ++i;
-      /* Save the rest of the buffer.txt in the new buffer */
+      
       while (file.available()) {
-        file.read(msgBuffer, i);
+        file.read(msgBuffer, i + 1);
         msgBuffer[i] = '\0';
-        file2.print(msgBuffer);
+        if (!mqtt.publish(TOPIC_AUDIO, msgBuffer)){
+          file2.print(msgBuffer);
+          file2.print('\n');
+        }
       }
+
+      /* Save the rest of the buffer.txt in the new buffer */
+//      while (file.available()) {
+//        file.read(msgBuffer, i);
+//        msgBuffer[i] = '\0';
+//        file2.print(msgBuffer);
+//      }
       
       /* Turns new buffer (tmp_buffer_a.txt) into THE buffer (buffer_a.txt) */
       file.close();
@@ -1054,13 +1073,31 @@ void writeAudioSD(payload_a* tmp_pp, int seqNumber, RtcDateTime timestamp) {
     return; 
   }
   
-  String msg = String((int)tmp_pp->colmeia) + "/" + String(seqNumber) + "/" + String(audioPacket_size) + "/";
+  snprintf(formatBuffer,
+  countof(formatBuffer),
+  "%04d",
+  seqNumber);
+  
+  String msg = String((int)tmp_pp->colmeia) + "/" + String(formatBuffer);
+  
+  snprintf(formatBuffer,
+  countof(formatBuffer),
+  "%04d",
+  audioPacket_size);
+  
+  msg += "/" + String(formatBuffer) + "/";
+  
 
   for(int i = 0; i < 100; ++i){
     if(i != 0){
       msg += ",";
     }
-    msg += String((int)tmp_pp->audio[i]);
+    snprintf(formatBuffer,
+    countof(formatBuffer),
+    "%04d",
+    tmp_pp->audio[i]);
+    
+    msg += String(formatBuffer);
   }
 
   msg += "/" + String(audio_timestamp) + "\n";
@@ -1106,14 +1143,32 @@ void writeAudioSD(payload_a* tmp_pp, int seqNumber, RtcDateTime timestamp) {
   if(!file.isOpen()){     
     return; 
   }
+
+  snprintf(formatBuffer,
+  countof(formatBuffer),
+  "%04u",
+  seqNumber);
   
-  String msg = String((int)tmp_pp->colmeia) + "/" + String(seqNumber) + "/" + String(audioPacket_size) + "/";
+  String msg = String((int)tmp_pp->colmeia) + "/" + String(formatBuffer);
+  
+  snprintf(formatBuffer,
+  countof(formatBuffer),
+  "%04u",
+  audioPacket_size);
+  
+  msg += "/" + String(formatBuffer) + "/";
+  
 
   for(int i = 0; i < 100; ++i){
     if(i != 0){
       msg += ",";
     }
-    msg += String((int)tmp_pp->audio[i]);
+    snprintf(formatBuffer,
+    countof(formatBuffer),
+    "%04u",
+    tmp_pp->audio[i]);
+    
+    msg += String(formatBuffer);
   }
 
   msg += "/" + String(audio_timestamp) + "\n";
@@ -1138,10 +1193,10 @@ void writeAudioSD(payload_a* tmp_pp, int seqNumber, RtcDateTime timestamp) {
 String payloadToString(payload_t* tmp_pp) {
 	int erros = tmp_pp->erro_vec - '\0';
 	
-	snprintf(bufferErro,
-	countof(bufferErro),
+	snprintf(formatBuffer,
+	countof(formatBuffer),
 	"%03d",
 	erros);
 	
-	return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(bufferErro);
+	return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(formatBuffer);
 }
