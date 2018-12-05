@@ -77,16 +77,16 @@ class GsmClient:
     
     return init()
   
-  def getRegistrationStatus():
-    #TO_DO 
-    sendAT("+CREG?")
-    if(waitResponse("\r\n+CREG:") != 1):
-      return REG_UNKOWN 
-    streamskipUntil(',') #Skip format (0)
-    status = stream.readStringUntil('\n').toInt()
-    waitResponse()
+  # def getRegistrationStatus():
+  #   #TO_DO 
+  #   sendAT("+CREG?")
+  #   if(waitResponse("\r\n+CREG:") != 1):
+  #     return REG_UNKOWN 
+  #   streamskipUntil(',') #Skip format (0)
+  #   status = stream.readStringUntil('\n').toInt()
+  #   waitResponse()
     
-    return (RegStatus)status
+  #   return (RegStatus)status
         
   def isNetworkConnected():
     #s = getRegistrationStatus()
