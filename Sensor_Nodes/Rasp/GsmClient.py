@@ -61,16 +61,16 @@ class GsmClient:
       return False
     
     sendAT("+CLTS=1")
-    if waitResponse(10000) != 1
+    if waitResponse(10000) != 1:
       return False
     
     sendAT("&W") 
     waitResponse()
     sendAT("+CFUN=0")
-    if waitResponse(10000) != 1
+    if waitResponse(10000) != 1:
       return False
     sendAT("+CFUN=1,1")
-    if waitResponse(10000) != 1
+    if waitResponse(10000) != 1:
       return False
     
     time.sleep(3)
@@ -89,8 +89,10 @@ class GsmClient:
     return (RegStatus)status
         
   def isNetworkConnected():
-    s = getRegistrationStatus()
-    return (s == REG_OK_HOME || s == REG_OK_ROAMING)
+    #s = getRegistrationStatus()
+    #return (s == REG_OK_HOME || s == REG_OK_ROAMING)
+    sendAT("+CREG?")
+    return waitResponse("\r\n+CREG:")
     
   def waitForNetwork(timeout = 60000)
     start = millis()
@@ -208,16 +210,21 @@ class GsmClient:
 
         if r1 and data.endsWith(r1) :
           print(data)
+          return True
         else if r2 and data.endsWith(r2) :
           print(data)
+          return True
         else if r3 and data.endsWith(r3) :
           print(data)
+          return True
         else if r4 and data.endsWith(r4) :
           print(data)
+          return True
         else if r5 and data.endsWith(r5) :
           print(data)
+          return True
         #falta colocar o resto
-
+        return False
     
   def streamSkipUntil():
     start = millis()
