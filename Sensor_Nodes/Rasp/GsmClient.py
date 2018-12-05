@@ -2,18 +2,18 @@ import time
 import serial
 
 class GsmClient:
-	def __init__(self, port, baudrate):
-   self.ser = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
-   time.sleep(1)
+  def __init__(self, port, baudrate):
+    self.ser = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
+    time.sleep(1)
     
   def begin():
     return init()
   
   def millis():
     return time.time() * 1000
-  	  
+      
   def init():
-    if(!testeAT()):
+    if(not testeAT()):
       return False
     
     sendAT("&FZ") #Factory + Reset
@@ -54,10 +54,10 @@ class GsmClient:
     sendAT("+CSCLK=0") # Disable Slow Clock
     waitResponse()
     sendAT("&W")       # Write configuration
-  	return waitResponse() == 1
+    return waitResponse() == 1
   
   def restart():
-    if(!testAT()):
+    if(not testAT()):
       return False
     
     sendAT("+CLTS=1")
@@ -67,10 +67,10 @@ class GsmClient:
     sendAT("&W") 
     waitResponse()
     sendAT("+CFUN=0")
-  	if waitResponse(10000) != 1
+    if waitResponse(10000) != 1
       return False
     sendAT("+CFUN=1,1")
-  	if waitResponse(10000) != 1
+    if waitResponse(10000) != 1
       return False
     
     time.sleep(3)
@@ -87,7 +87,7 @@ class GsmClient:
     waitResponse()
     
     return (RegStatus)status
-		
+        
   def isNetworkConnected():
     s = getRegistrationStatus()
     return (s == REG_OK_HOME || s == REG_OK_ROAMING)
