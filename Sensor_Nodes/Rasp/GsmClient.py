@@ -6,13 +6,13 @@ class GsmClient:
     self.ser = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
     time.sleep(1)
     
-  def begin():
+  def begin(self):
     return init()
   
-  def millis():
+  def millis(self):
     return time.time() * 1000
       
-  def init():
+  def init(self):
     if(not testeAT()):
       return False
     
@@ -24,14 +24,14 @@ class GsmClient:
       return False
     
     getSimStatus()
-    return True;
+    return True
     
-  def setBaud(baud):
+  def setBaud(self,baud):
     sendAT("+IPR=", baud)
   
-  def testAT(timeout = 10000):
-    start = millis()
-    while millis() - start < timeout:
+  def testAT(self,timeout = 10000):
+    start = self.millis()
+    while self.millis() - start < timeout:
       sendAT("")
       
       if(waitResponse(200) == 1):
@@ -42,7 +42,7 @@ class GsmClient:
       
     return False
   
-  def factoryDefault():
+  def factoryDefault(self):
     sendAT("&FZE0&W")  # Factory + Reset + Echo Off + Write
     waitResponse()
     sendAT("+IPR=0")   # Auto-baud
@@ -56,7 +56,7 @@ class GsmClient:
     sendAT("&W")       # Write configuration
     return waitResponse() == 1
   
-  def restart():
+  def restart(self):
     if(not testAT()):
       return False
     
@@ -88,21 +88,21 @@ class GsmClient:
     
   #   return (RegStatus)status
         
-  def isNetworkConnected():
+  def isNetworkConnected(self):
     #s = getRegistrationStatus()
     #return (s == REG_OK_HOME || s == REG_OK_ROAMING)
     sendAT("+CREG?")
     return waitResponse("\r\n+CREG:")
     
-  def waitForNetwork(timeout = 60000)
-    start = millis()
-    while millis() - start < timeout:   
+  def waitForNetwork(self,timeout = 60000):
+    start = self.millis()
+    while self.millis() - start < timeout:   
       if(isNetworkConnected()):
         return True
       time.sleep(0.25)
     return False
   
-  def gprsConnect(apn, user = None, pwd = None):
+  def gprsConnect(self,apn, user = None, pwd = None):
     gprsDisconnect()
     
     # Set the Bearer for the IP 
@@ -112,12 +112,12 @@ class GsmClient:
     sendAT("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
     waitResponse()
     
-    if(user && len(user) > 0):
-      sendAT("+SAPBR=3,1,\"USER\",\"", user, '"') // Set the user name
+    if(user and len(user) > 0):
+      sendAT("+SAPBR=3,1,\"USER\",\"", user, '"') # Set the user name
       waitResponse()
       
-    if(pwd && len(pwd) > 0):
-      sendAT("+SAPBR=3,1,\"PWD\",\"", pwd, '"') // Set the password
+    if(pwd and len(pwd) > 0):
+      sendAT("+SAPBR=3,1,\"PWD\",\"", pwd, '"') # Set the password
       waitResponse()
       
     # Define the PDP context
@@ -175,7 +175,7 @@ class GsmClient:
     
     return True
   
-  def gprsDisconnect():
+  def gprsDisconnect(self):
     # Shut the TCP/IP connection
     sendAT("+CIPSHUT")
     if(waitResponse(60000) != 1):
@@ -187,52 +187,51 @@ class GsmClient:
     
     return True
   
-  def sendAT(*argv):    
+  def sendAT(self,*argv):    
     streamWrite("AT", argv, "\r\n")
     stream.flush()
     
-  def streamWrite(head, *tail):
+  def streamWrite(self,head, *tail):
     for i in tail:
       head += i
     self.ser.write(head.encode())
     time.sleep(1)
     
-  def waitResponse(timeout, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
-    start = millis()
+  def waitResponse(self,timeout, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+    start = self.millis()
     data = ''
-    while millis() - start < timeout;
+    while self.millis() - start < timeout:
       while self.ser.in_waiting > 0:
         a = self.ser.read()
 
-        if a <= 0
+        if a <= 0:
           continue
         data += a
 
         if r1 and data.endsWith(r1) :
           print(data)
           return True
-        else if r2 and data.endsWith(r2) :
+        elif r2 and data.endsWith(r2) :
           print(data)
           return True
-        else if r3 and data.endsWith(r3) :
+        elif r3 and data.endsWith(r3) :
           print(data)
           return True
-        else if r4 and data.endsWith(r4) :
+        elif r4 and data.endsWith(r4) :
           print(data)
           return True
-        else if r5 and data.endsWith(r5) :
+        elif r5 and data.endsWith(r5) :
           print(data)
           return True
         #falta colocar o resto
         return False
     
-  def streamSkipUntil():
-    start = millis()
-    while millis() - start < timeout:   
-      while millis() - start < timeout && self.ser.in_waiting <= 0:
-        
-      if(self.ser.read() == c):
-        return True
-    
+  def streamSkipUntil(self):
+    start = self.millis()
+    while self.millis() - start < timeout:   
+      while self.millis() - start < timeout and self.ser.in_waiting <= 0:
+        if(self.ser.read() == c):
+          return True
+      
     return False
     
