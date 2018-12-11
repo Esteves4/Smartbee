@@ -16,10 +16,10 @@ class GsmClient:
     if(not self.testeAT()):
       return False
     
-    self.sendAT()("&FZ") #Factory + Reset
+    self.sendAT("&FZ") #Factory + Reset
     self.waitResponse()
     
-    self.sendAT()("&E0") #Echo off
+    self.sendAT("&E0") #Echo off
     if(self.waitResponse() != 1):
       return False
     
@@ -27,12 +27,12 @@ class GsmClient:
     return True
     
   def setBaud(self,baud):
-    self.sendAT()("+IPR=", baud)
+    self.sendAT("+IPR=", baud)
   
   def testAT(self,timeout = 10000):
     start = self.millis()
     while self.millis() - start < timeout:
-      self.sendAT()("")
+      self.sendAT("")
       
       if(self.waitResponse(200) == 1):
         time.sleep(0.1)
@@ -43,33 +43,33 @@ class GsmClient:
     return False
   
   def factoryDefault(self):
-    self.sendAT()("&FZE0&W")  # Factory + Reset + Echo Off + Write
+    self.sendAT("&FZE0&W")  # Factory + Reset + Echo Off + Write
     self.waitResponse()
-    self.sendAT()("+IPR=0")   # Auto-baud
+    self.sendAT("+IPR=0")   # Auto-baud
     self.waitResponse()
-    self.sendAT()("+IFC=0,0") # No Flow Control
+    self.sendAT("+IFC=0,0") # No Flow Control
     self.waitResponse()
-    self.sendAT()("+IFC=3,3") # 8 data 0 parity 1 stop
+    self.sendAT("+IFC=3,3") # 8 data 0 parity 1 stop
     self.waitResponse()
-    self.sendAT()("+CSCLK=0") # Disable Slow Clock
+    self.sendAT("+CSCLK=0") # Disable Slow Clock
     self.waitResponse()
-    self.sendAT()("&W")       # Write configuration
+    self.sendAT("&W")       # Write configuration
     return self.waitResponse() == 1
   
   def restart(self):
     if(not testAT()):
       return False
     
-    self.sendAT()("+CLTS=1")
+    self.sendAT("+CLTS=1")
     if self.waitResponse(10000) != 1:
       return False
     
-    self.sendAT()("&W") 
+    self.sendAT("&W") 
     self.waitResponse()
-    self.sendAT()("+CFUN=0")
+    self.sendAT("+CFUN=0")
     if self.waitResponse(10000) != 1:
       return False
-    self.sendAT()("+CFUN=1,1")
+    self.sendAT("+CFUN=1,1")
     if self.waitResponse(10000) != 1:
       return False
     
@@ -79,7 +79,7 @@ class GsmClient:
   
   # def getRegistrationStatus():
   #   #TO_DO 
-  #   self.sendAT()("+CREG?")
+  #   self.sendAT("+CREG?")
   #   if(waitResponse("\r\n+CREG:") != 1):
   #     return REG_UNKOWN 
   #   streamskipUntil(',') #Skip format (0)
@@ -91,7 +91,7 @@ class GsmClient:
   def isNetworkConnected(self):
     #s = getRegistrationStatus()
     #return (s == REG_OK_HOME || s == REG_OK_ROAMING)
-    self.sendAT()("+CREG?")
+    self.sendAT("+CREG?")
     return self.waitResponse("\r\n+CREG:")
     
   def waitForNetwork(self,timeout = 60000):
@@ -106,70 +106,70 @@ class GsmClient:
     self.gprsDisconnect()
     
     # Set the Bearer for the IP 
-    self.sendAT()("+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
+    self.sendAT("AT+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
     self.self.waitResponse()
     
-    self.sendAT()("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
+    self.sendAT("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
     self.self.waitResponse()
     
     if(user and len(user) > 0):
-      self.sendAT()("+SAPBR=3,1,\"USER\",\"", user, '"') # Set the user name
+      self.sendAT("+SAPBR=3,1,\"USER\",\"", user, '"') # Set the user name
       self.waitResponse()
       
     if(pwd and len(pwd) > 0):
-      self.sendAT()("+SAPBR=3,1,\"PWD\",\"", pwd, '"') # Set the password
+      self.sendAT("+SAPBR=3,1,\"PWD\",\"", pwd, '"') # Set the password
       self.waitResponse()
       
     # Define the PDP context
-    self.sendAT()("+CGACT=1,1")
+    self.sendAT("+CGACT=1,1")
     self.waitResponse(60000)
     
     # Open the defined GPRS bearer context
-    self.sendAT()("+SAPBR=1,1")
+    self.sendAT("+SAPBR=1,1")
     self.waitResponse(85000)
     
     # Query the GPRS bearer context status
-    self.sendAT()("+SAPBR=2,1")
+    self.sendAT("+SAPBR=2,1")
     if(self.waitResponse(30000) != 1):
       return False
     
     # Attach to GPRS
-    self.sendAT()("+CGATT=1")
+    self.sendAT("+CGATT=1")
     if(self.waitResponse(60000) != 1):
       return False
     
     # Set to multi-IP
-    self.sendAT()("+CIPMUX=1")
+    self.sendAT("+CIPMUX=1")
     if(self.waitResponse() != 1):
       return False
     
     # Put in "quick send" mode (thus no extra "Send OK")
-    self.sendAT()("+CIPQSEND=1")
+    self.sendAT("+CIPQSEND=1")
     if(self.waitResponse() != 1):
       return False
     
     # Set to get data manually
-    self.sendAT()("+CIPRXGET=1")
+    self.sendAT("+CIPRXGET=1")
     if(self.waitResponse() != 1):
       return False
     
     # Start Task and Set APN, USER NAME, PASSWORD
-    self.sendAT()("+CSTT=\"", apn, "\",\"", user, "\",\"", pwd, "\"")
+    self.sendAT("+CSTT=\"", apn, "\",\"", user, "\",\"", pwd, "\"")
     if(self.waitResponse(60000) != 1):
       return False
     
     # Bring Up Wireless Connection with GPRS or CSD
-    self.sendAT()("+CIICR")
+    self.sendAT("+CIICR")
     if(self.waitResponse(60000) != 1):
       return False
     
     # Get Local IP Address, only assigned after connection
-    self.sendAT()("+CIFSR;E0")
+    self.sendAT("+CIFSR;E0")
     if(self.waitResponse(10000) != 1):
       return False
     
     # Configure Domain name Server (DNS)
-    self.sendAT()("+CDNSCFG=\"8.8.8.8\",\"8.8.4.4\"")
+    self.sendAT("+CDNSCFG=\"8.8.8.8\",\"8.8.4.4\"")
     if(self.waitResponse() != 1):
       return False
     
@@ -177,55 +177,72 @@ class GsmClient:
   
   def gprsDisconnect(self):
     # Shut the TCP/IP connection
-    self.sendAT()("+CIPSHUT")
+    self.sendAT("+CIPSHUT")
     if(self.waitResponse(60000) != 1):
       return False
     
-    self.sendAT()("+CGATT=0")  # Deactivate the bearer context
+    self.sendAT("+CGATT=0")  # Deactivate the bearer context
     if(self.waitResponse(60000) != 1):
       return False
     
     return True
   
-  def self.sendAT()(self,*argv):    
+  def sendAT(self,*argv):    
     self.streamWrite("AT", argv, "\r\n")
         
-  def streamWrite(self,head, *tail):
+  def streamWrite(self, head, *tail):
     for i in tail:
-      head += i
-    self.ser.write(head.encode())
+      head += ''.join(i)
+    self.ser.write(head)
     time.sleep(1)
     
-  def waitResponse(self,timeout, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+  def waitResponse(self, timeout, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
     start = self.millis()
     data = ''
+
     while self.millis() - start < timeout:
       while self.ser.in_waiting > 0:
-        a = self.ser.read()
+        a = self.ser.read(self.ser.in_waiting)
 
         if a <= 0:
           continue
+
         data += a
 
-        if r1 and data.endsWith(r1) :
+        if r1 and data.endswith(r1):
           print(data)
           return True
-        elif r2 and data.endsWith(r2) :
+        elif r2 and data.endswith(r2):
           print(data)
           return True
-        elif r3 and data.endsWith(r3) :
+        elif r3 and data.endswith(r3):
           print(data)
           return True
-        elif r4 and data.endsWith(r4) :
+        elif r4 and data.endswith(r4):
           print(data)
           return True
-        elif r5 and data.endsWith(r5) :
+        elif r5 and data.endswith(r5):
           print(data)
           return True
+
         #falta colocar o resto
         return False
-    
-  def streamSkipUntil(self):
+
+    def modemSend(self,buff, len, mux):
+      self.sendAT("+CIPSEND=",mux,",", len)
+      if self.waitResponse(">") != 1:
+        return  0
+
+      self.ser.write(buff[0:len])
+      self.ser.flush()
+
+      if self.waitResponse("\r\nDATA ACCEPT:") != 1:
+        return 0
+
+      self.streamSkipUntil(',') #Skip mux
+      return int(self.streamSkipUntil('\n'))
+      
+  def streamSkipUntil(self, c):
     start = self.millis()
     while self.millis() - start < timeout:   
       while self.millis() - start < timeout and self.ser.in_waiting <= 0:
