@@ -15,12 +15,9 @@ class GsmClient:
     
   def begin(self):
     return self.init()
-  
-  def millis(self):
-    return time.time() * 1000
-      
+        
   def init(self):
-    if(not self.testeAT()):
+    if(not self.testAT()):
       return False
     
     self.sendAT("&FZ") #Factory + Reset
@@ -41,7 +38,7 @@ class GsmClient:
     while self.millis() - start < timeout:
       self.sendAT("")
       
-      if(self.waitResponse(2000) == True):
+      if(self.waitResponse(200) == 1):
         time.sleep(0.1)
         return True
       
@@ -213,11 +210,12 @@ class GsmClient:
     self.ser.write(head)
     time.sleep(1)
     
-  def waitResponse(self, timeout, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+  def waitResponse(self, timeout, data, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
     start = self.millis()
-    data = ""
+    end = self.millis()
+    index = 0
 
-    while self.millis() - start < timeout:
+    while end - start < timeout:
       while self.ser.in_waiting > 0:
         a = self.ser.read(self.ser.in_waiting)
 
@@ -227,27 +225,24 @@ class GsmClient:
         data += a
 
         if r1 and data.endswith(r1):
-          print(data)
-          return True
+          index = 1
+          break;
         elif r2 and data.endswith(r2):
-          print(data)
-          return True
+          index = 3
+          break;
         elif r3 and data.endswith(r3):
-          print(data)
-          return True
+          index = 3
+          break;
         elif r4 and data.endswith(r4):
-          print(data)
-          return True
+          index = 4
+          break;
         elif r5 and data.endswith(r5):
-          print(data)
-          return True
+          index = 5
+          break;
         elif data.endswith("\r\n+CIPRXGET:"):
           mode = self.ser.read_until(',')
           if(int(mode) == 1):
             mux = int(self.ser.read_until('\n'))
-
-            if(mux >= 0 and mux < TINY_GSM_MUX_COUNT && self.sockets[mux]):
-              self.sockets[mux].got_data = true
 
             data = ""
           else
@@ -257,15 +252,20 @@ class GsmClient:
           coma = data.find(',', n1+2)
           mux = int(data[n1+1:coma])
 
-          if(mux >= 0 and mux < TINY_GSM_MUX_COUNT and self.sockets[mux]):
-            self.sockets[mux].sock_connected = False
-
           data = ""
           print("### Closed: ", mux)
 
-        #falta colocar o resto
-        print data
-        return False
+      end = self.millis()
+      if not index:
+        break
+
+    if not index:
+      data = data.lstrip()
+      if(len(data)):
+        print("### Unhandled:", data)
+      data = ""
+
+    return index
 
     def modemSend(self,buff, len, mux):
       self.sendAT("+CIPSEND=",mux,",", len)
@@ -281,6 +281,13 @@ class GsmClient:
       self.streamSkipUntil(',') #Skip mux
       return int(self.streamSkipUntil('\n'))
       
+  def waitResponse(self, timeout,  r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+    data = ""
+    return self.waitResponse(timeout, data, r1, r2, r3, r4, r5)
+
+  def waitResponse(self, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+    return self.waitResponse(1000, r1, r2, r3, r4, r5)
+
   def streamSkipUntil(self, c):
     start = self.millis()
     while self.millis() - start < timeout:   
@@ -290,3 +297,5 @@ class GsmClient:
       
     return False
     
+  def millis(self):
+    return time.time() * 1000
