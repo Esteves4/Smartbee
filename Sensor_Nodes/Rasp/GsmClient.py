@@ -9,8 +9,19 @@ class GsmClient:
   REG_OK_ROAMING = 5
   REG_UNKNOWN = 4
 
-  def __init__(self, port, baudrate):
+  TINY_GSM_MUX_COUNT 5
+
+
+  def __init__(self, port, baudrate, mux = 1):
     self.ser = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
+    self.mux = 1
+    self.sock_available = 0
+    self.prev_check = 0
+    self.sock_connected = False
+    self.got_data = False
+    self.sockets = [0,0,0,0,0]
+
+
     time.sleep(1)
     
   def begin(self):
@@ -267,7 +278,7 @@ class GsmClient:
 
     return index
 
-    def modemSend(self,buff, len, mux):
+  def modemSend(self,buff, len, mux):
       self.sendAT("+CIPSEND=",mux,",", len)
       if self.waitResponse(">") != 1:
         return  0
@@ -299,3 +310,73 @@ class GsmClient:
     
   def millis(self):
     return time.time() * 1000
+
+  def connect(self,host, port):
+    self.stop()
+    rx.clear()
+    self.sock_connected = self.modemConnect(host, port, mux)
+    return sock_connected
+
+  #ATUALIZAR VARIAVEIS QUE ALTERAM MUX, CRIAR CLASSE DA FIFO
+  def stop(self):
+    self.sendAT("\r\n+CIPCLOSE=", self.mux)
+    self.sock_connected = False
+    self.waitResponse()
+    rx.clear()
+
+  def modemConnect(self, host, port, mux, ssl = False):
+    rsp = None
+    self.sendAT("+CPSTART=", mux, ',', "\"TCP", "\",\"", host, "\",", port)
+    rsp = waitResponse(75000,
+                        "CONNECT OK\r\n",
+                        "CONNECT FAIL\r\n",
+                        "ALREADY CONNECT\r\n",
+                        "ERROR\r\n",
+                        "CLOSE OK\r\n") # Happens when HTTPS handshake fails
+    return (1 == rsp)
+
+  def write(self,buf, size):
+    self.maintain()
+    return self.modemSend(buf, size, mux)
+
+  def write(self, string):
+    if string == None: return 0
+
+    return self.write(string, len(string))
+
+  def maintain(self):
+    for mux in range(0, TINY_GSM_MUX_COUNT):
+      sock = self.sockets[mux]
+
+      if sock and sock.got_data:
+        sock.got_data = False
+        sock.sock_available = self.modemGetAvailable(mux)
+
+    while self.ser.in_waiting:
+      self.waitResponse(10, None, None)
+
+  def modemGetAvailable(self, mux):
+    self.sendAT("+CIPRXGET=4,", mux)
+    result = 0
+
+    if self.waitResponse("+CIPRXGET:") == 1:
+      self.streamskipUntil(',') #Skip mode 4
+      self.streamskipUntil(',') #Skip mux]
+      result = int(self.ser.read_until('\n'))
+      self.waitResponse()
+
+    if(!result):
+      self.sockets[mux].sock_connected = self.modemGetConnected(mux)
+
+    return result
+
+  def modemGetConnected(self, mux):
+    self.sendAT("+CIPSTATUS=", mux)
+    res = self.waitResponse(",\"CONNECTED\"", "\"CLOSED\"",",\"CLOSING\"", ",\"INITIAL\"")
+    self.waitResponse()
+    return 1 == res
+
+
+
+
+
