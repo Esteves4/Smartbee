@@ -121,9 +121,7 @@ class GsmClient:
     self.gprsDisconnect()
     
     # Set the Bearer for the IP 
-    <<<<<<< HEAD
     self.sendAT("+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
-    >>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
     self.self.waitResponse()
     
     self.sendAT("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
@@ -204,16 +202,14 @@ class GsmClient:
     
     return True
   
-<<<<<<< HEAD
+
   def sendAT(self, *argv):
->>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
     self.streamWrite("AT", argv, "\r\n")
         
   def streamWrite(self, head, *tail):
     for i in tail:
       head += ''.join(i)
-<<<<<<< HEAD
->>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
+
     self.ser.write(head)
     time.sleep(1)
     
@@ -230,7 +226,6 @@ class GsmClient:
 
         data += a
 
-<<<<<<< HEAD
         if r1 and data.endswith(r1):
           print(data)
           return True
@@ -244,7 +239,6 @@ class GsmClient:
           print(data)
           return True
         elif r5 and data.endswith(r5):
->>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
           print(data)
           return True
         elif data.endswith("\r\n+CIPRXGET:"):
