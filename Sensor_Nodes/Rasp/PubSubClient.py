@@ -1,8 +1,10 @@
+import time
+
 class PubSubClient
   MQTT_VERSION_3_1 = 3
   MQTT_VERSION_3_1_1 = 4
 
-  # MQTT_VRSION: Pick the version
+  # MQTT_VERSION: Pick the version
   MQTT_VERSION = MQTT_VERSION_3_1_1
 
   #MQTT_MAX_PACKET_SIZE: maximm packet size
@@ -50,19 +52,345 @@ class PubSubClient
     self.setClient(client)
     self.stream = None
     self.ip = None
+    self.domain = None
     self.port = None
+    self.buffer = []
+    self.nextMsgId = 0
+    self.lastOutActivity = None
+    self.lastInActivity = None
+    self.pingOutstanding = None
+
+  def millis(self):
+    return time.time() * 1000
 
   def connect(self,id):
     return self.connect(id, None, None, 0, 0, 0, 0)
 
-  def connect(self, id, user, pass):
-    return connect(id, user, pass, 0, 0, 0, 0)
+  def connect(self, id, user, password):
+    return self.connect(id, user, password, 0, 0, 0, 0)
 
   def connect(id, willTopic, willQos, willRetain, willMessage):
-    return connect(id, None, None, willTopic, willQos, willRetain, willMessage) 
+    return self.connect(id, None, None, willTopic, willQos, willRetain, willMessage) 
     
-  def connect(id, user, user, pass, willTopic, willQos, willRetain, willMessage)
+  def connect(id, user, user, password, willTopic, willQos, willRetain, willMessage)
     if (not connected()):
       result = 0
 
-      self.client.connect()
+      if (domain not None):
+        result = self.client.connect(self.domain, self.port)
+      else:
+        result = self.client.connect(self.ip, self.port)
+
+      if result == 1:
+        # Leave rooom in the buffer for header and variable length field
+        self.nextMsgId = 1
+        length = 5
+        j = 0
+
+        if MQTT_VERSION == MQTT_VERSION_3_1:
+          d = [0x00, 0x06, 'M', 'Q','I','s','d', 'p', MQTT_VERSION]
+          MQTT_HEADER_VERSION_LENGTH = 9
+        elif MQTT_VERSION == MQTT_VERSION_3_1_1
+          d = [0x00, 0x04, 'M', 'Q', 'T', 'T', MQTT_VERSION]
+          MQTT_HEADER_VERSION_LENGTH = 7
+
+        length += 1
+        lengthFinal = length+MQTT_HEADER_VERSION_LENGTH
+        self.buffer[length:lengthFinal] = d[0:MQTT_HEADER_VERSION_LENGTH]
+
+        length = lengthFinal
+        
+        v = 0
+        if willTopic:
+          v = 0x06|(willQos<<3)|(willRetain<<5)
+        else:
+          v = 0x02
+
+        if user not None:
+          v = v|0x80
+
+          if password not None:
+            v = v|(0x80>>1)
+
+        length += 1
+        self.buffer[length] = v
+
+        length += 1
+        self.buffer[length] = ((MQTT_KEEPALIVE) >> 8)
+
+        length += 1
+        self.buffer[length] = ((MQTT_KEEPALIVE) & 0xFF)
+        length = self.writeString(id, self.buffer, length)
+        if willTopic:
+          length = self.writeString(willTopic, self.buffer, length)
+          length = self.writeString(willMessage, self.buffer, length)
+
+        if user not None:
+          length = self.writeString(user, self.buffer, length)
+
+          if password not None:
+            length = self.writeString(password, self.buffer, length)
+
+        self.write(MQTTCONNECT, self.buffer, length-5)
+
+        self.lastInActivity = self.lastOutActivity = self.millis()
+
+        while( not self.client.available()):
+          t = self.millis()
+
+          if t - self.lastOutActivity >= MQTT_SOCKET_TIMEOUT*1000:
+            self.state = MQTT_CONNECTION_TIMEOUT
+            self.client.stop()
+            return false
+
+        llen = 0
+        lenh = readPacket(llen)
+
+        if(lenh == 4):
+          if(self.buffer[3] == 0):
+            self.lastInActivity = self.millis()
+            self.pingOutstanding = False;
+
+            self.state = MQTT_CONNECTED
+            return True
+          else:
+            self.state = buffer[3]
+        self.client.stop()
+      else:
+        self.state = MQTT_CONNECT_FAILED
+
+      return False
+
+    return True
+
+  def writeString(self, string, buf, pos):
+    i = len(string)
+
+    pos += 1
+    buf[pos] = (i >> 8)
+
+    pos += 1
+    buf[pos] = (i & 0xFF)
+
+    pos += 1
+    posFinal = pos+i
+    buf[pos:posFinal] = string[0:i]
+    pos = posFinal
+
+  def write(self, header, buf, length):
+    lenBuf = []
+    llen = 0
+    digit = 0
+    pos = 0
+    rc = 0
+    lenh = length
+
+    while lenh > 0:
+      digit = lenh%128
+      lenh = lenh/128
+
+      if(lenh > 0)
+        digit |= 0x80
+
+      pos += 1
+      lenBuf[pos] = digit
+      llen += 1
+
+    buf[4-llen] = header
+    buf[5-llen: 5] = lenBuf[0:llen]
+
+    rc = self.client.write(buf+(4-llen), length+1+llen)
+    self.lastOutActivity = self.millis()
+    return (rc == 1+llen+length)
+
+  def millis(self):
+    return time.time() * 1000
+
+  def readPacket(self, lengthLength):
+    lenh = 0
+
+    (success, result) = readByte()
+
+    if not success: return 0
+    self.buffer[lenh] = result
+    lenh += 1
+
+    isPublish = (self.buffer[0]&0xF0) == MQTTPUBLISH
+    
+    multiplier = 1
+    length = 0
+    digit = 128
+    skip = 0
+    start = 0
+
+    while ((digit & 128) != 0):
+      if(lenh == 6):
+        # Invalid remaining length encoding - kill the connection
+        self.state = MQTT_DISCONNECTED
+        self.client.stop()
+        return 0
+
+      (success, result) = readByte()
+
+      if not success:  return 0
+      digit = result
+
+      lenh += 1
+      self.buffer[lenh] = digit
+
+      length += (digit & 127) * multiplier
+      multiplier *= 128
+
+    lengthLength = lenh - 1
+
+    if isPublish:
+      (success, result) = readByte()
+
+      if not success: return 0
+      self.buffer[lenh] = result
+      lenh += 1
+
+      (success, result) = readByte()
+      if not success: return 0
+      self.buffer[lenh] = result
+      lenh += 1
+
+      skip = (self.buffer[lengthLength+1]<<8) + self.buffer[lengthLength+2]
+      start = 2
+
+      if(self.buffer[0]&MQTTQOS1):
+        skip += 2
+
+
+    for i in range(start, length):
+      (success, result) = readByte()
+      if not success: return 0
+      digit = result
+
+      if(self.stream):
+        if(isPublish and lenh - lengthLength - 2 > skip):
+          self.stream.write(digit)
+
+      if (lenh < MQTT_MAX_PACKET_SIZE):
+        self.buffer[lenh] = digit
+
+      lenh += 1
+
+    if (not self.stream and lenh > MQTT_MAX_PACKET_SIZE):
+      lenh = 0 # THis will cause the packet to be ignored
+
+    return lenh
+
+  def connected(self):
+    rc = None
+
+    if(self.client == None):
+      rc = False
+    else:
+      rc = int(self.client.connected())
+
+      if (not rc):
+        if(self.state == MQTT_CONNECTED):
+          self.state = MQTT_CONNECTION_LOST
+          self.client.flush()
+          self.client.stop()
+
+    return rc
+
+  #Reads a byte into result
+  def readByte(self):
+    previousMillis = self.millis()
+
+    while(not self.client.available()):
+      currentMillis = self.millis()
+      if currentMillis - previousMillis >= MQTT_SOCKET_TIMEOUT * 1000:
+        return (False, None)
+
+
+    result = self.client.read()
+    return (True, result)
+
+  def publish(self, topic, payload):
+    return self.publish(topic, payload, len(payload), False)
+
+  def publish(self, topic, payload, retained):
+    return self.publish(topic, payload, len(payload), retained)
+
+  def publish(self, topic, payload, plength):
+    return publish(topic, payload, plength, False)
+
+  def publish(self,topic, payload, plength, retained):
+    if(self.connected()):
+      if (MQTT_MAX_PACKET_SIZE < 5 + 2 + len(topic) + plength):
+        # Too  long
+        return False
+
+      length = 5
+      length = self.writeString(topic, buffer, length)
+      length += 1
+
+      buffer[length:length+plength] = payload[0:plength]
+
+      header = MQTTPUBLISH
+
+      if retained:
+        header |= 1
+
+      return self.write(header, buffer, length-5)
+
+    return False
+
+  def subscribe(self, topic):
+    return self.subscribe(topic, 0)
+
+  def subscribe(self, topic, qos):
+    if(qos > 1):
+      return False
+
+    if (MQTT_MAX_PACKET_SIZE < 9 + len(topic)):
+      # Too long
+      return False
+
+    if (self.connected()):
+      # Leave room in the buffer for header and variable length field
+      length = 5
+
+      self.nextMsgId += 1
+
+      if(nextMsgId == 0):
+        nextMsgId = 1
+
+      length += 1
+      self.buffer[length] = (self.nextMsgId >> 8)
+      length += 1
+      self.buffer[length] = (self.nextMsgId & 0XFF)
+
+      length = self.writeString(topic, self.buffer, length)
+
+      length += 1
+      buffer[length] = qos
+      return self.write(MQTTSUBSCRIBE|MQTTQOS1, self.buffer, length-5)
+
+    return False
+
+  def disconnect(self):
+    self.buffer[0] = MQTTDISCONNECT
+    self.buffer[1] = 0
+
+    self.client.write(self.buffer, 2)
+    self.state = MQTT_DISCONNECTED
+
+    self.client.stop()
+
+    self.lastInActivity = self.lastOutActivity = millis()
+
+  def setServer(self, domain, port):
+    self.domain = domain
+    self.port = port
+
+    return self
+
+
+
+
+

@@ -2,6 +2,13 @@ import time
 import serial
 
 class GsmClient:
+  REG_UNREGISTERED = 0
+  REG_SEARCHING = 2
+  REG_DENIED = 3
+  REG_OK_HOME = 1
+  REG_OK_ROAMING = 5
+  REG_UNKNOWN = 4
+
   def __init__(self, port, baudrate):
     self.ser = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
     time.sleep(1)
@@ -77,23 +84,31 @@ class GsmClient:
     
     return self.init()
   
-  # def getRegistrationStatus():
-  #   #TO_DO 
-  #   self.sendAT("+CREG?")
-  #   if(waitResponse("\r\n+CREG:") != 1):
-  #     return REG_UNKOWN 
-  #   streamskipUntil(',') #Skip format (0)
-  #   status = stream.readStringUntil('\n').toInt()
-  #   self.waitResponse()
-    
-  #   return (RegStatus)status
-        
-  def isNetworkConnected(self):
-    #s = getRegistrationStatus()
-    #return (s == REG_OK_HOME || s == REG_OK_ROAMING)
+  def getRegistrationStatus(self):
     self.sendAT("+CREG?")
-    return self.waitResponse("\r\n+CREG:")
+    if(self.waitResponse("\r\n+CREG:") != 1):
+      return REG_UNKOWN 
+
+    self.streamskipUntil(',') #Skip format (0)
+
+    status = int(self.ser.read_until(','))
+    self.waitResponse()
     
+    return status
+  
+  def getSignalQuality(self):
+    self.sendAT("+CSQ")
+    if self.waitResponse("\r\n+CSQ:") != 1:
+      return 99
+    res = int(self.ser.read_until(','))
+    self.waitResponse()
+
+    return res
+
+  def isNetworkConnected(self):
+    s = getRegistrationStatus()
+    return (s == REG_OK_HOME || s == REG_OK_ROAMING)
+       
   def waitForNetwork(self,timeout = 60000):
     start = self.millis()
     while self.millis() - start < timeout:   
@@ -106,11 +121,9 @@ class GsmClient:
     self.gprsDisconnect()
     
     # Set the Bearer for the IP 
-<<<<<<< HEAD
-    self.sendAT("AT+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
-=======
+    <<<<<<< HEAD
     self.sendAT("+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
->>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
+    >>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
     self.self.waitResponse()
     
     self.sendAT("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
@@ -192,8 +205,6 @@ class GsmClient:
     return True
   
 <<<<<<< HEAD
-  def sendAT(self,*argv):    
-=======
   def sendAT(self, *argv):
 >>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
     self.streamWrite("AT", argv, "\r\n")
@@ -202,15 +213,13 @@ class GsmClient:
     for i in tail:
       head += ''.join(i)
 <<<<<<< HEAD
-=======
-    print head
 >>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
     self.ser.write(head)
     time.sleep(1)
     
   def waitResponse(self, timeout, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
     start = self.millis()
-    data = ''
+    data = ""
 
     while self.millis() - start < timeout:
       while self.ser.in_waiting > 0:
@@ -235,23 +244,30 @@ class GsmClient:
           print(data)
           return True
         elif r5 and data.endswith(r5):
-=======
-        if r1 and data.endswith(r1) :
-          print(data)
-          return True
-        elif r2 and data.endswith(r2) :
-          print(data)
-          return True
-        elif r3 and data.endswith(r3) :
-          print(data)
-          return True
-        elif r4 and data.endswith(r4) :
-          print(data)
-          return True
-        elif r5 and data.endswith(r5) :
 >>>>>>> 133db9293bb0ce7681c73ef3063c66ab0d2fd353
           print(data)
           return True
+        elif data.endswith("\r\n+CIPRXGET:"):
+          mode = self.ser.read_until(',')
+          if(int(mode) == 1):
+            mux = int(self.ser.read_until('\n'))
+
+            if(mux >= 0 and mux < TINY_GSM_MUX_COUNT && self.sockets[mux]):
+              self.sockets[mux].got_data = true
+
+            data = ""
+          else
+            data += mode
+        elif data.endswith("CLOSED\r\n"):
+          n1 = data.rfind("\r\n", len(data) - 8)
+          coma = data.find(',', n1+2)
+          mux = int(data[n1+1:coma])
+
+          if(mux >= 0 and mux < TINY_GSM_MUX_COUNT and self.sockets[mux]):
+            self.sockets[mux].sock_connected = False
+
+          data = ""
+          print("### Closed: ", mux)
 
         #falta colocar o resto
         print data
