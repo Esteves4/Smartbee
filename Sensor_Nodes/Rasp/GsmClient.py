@@ -224,6 +224,13 @@ class GsmClient:
 
 		self.ser.write(head)
 		time.sleep(1)
+
+	def waitResponse(self, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+		return self.waitResponse(1000, r1, r2, r3, r4, r5)
+		
+	def waitResponse(self, timeout,  r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+		data = ""
+		return self.waitResponse(timeout, data, r1, r2, r3, r4, r5)
 		
 	def waitResponse(self, timeout, data, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
 		start = self.millis()
@@ -286,13 +293,8 @@ class GsmClient:
 			data = ""
 
 		return index
-		
-	def waitResponse(self, timeout,  r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
-		data = ""
-		return self.waitResponse(timeout, data, r1, r2, r3, r4, r5)
 
-	def waitResponse(self, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
-		return self.waitResponse(1000, r1, r2, r3, r4, r5)
+
 
 	def streamSkipUntil(self, c):
 		start = self.millis()
