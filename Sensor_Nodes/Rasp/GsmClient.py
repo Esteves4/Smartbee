@@ -441,7 +441,7 @@ class GsmClient:
 			result = int(self.ser.read_until('\n'))
 			self.waitResponse()
 
-		if(!result):
+		if(not result):
 			self.sockets[mux].sock_connected = self.modemGetConnected(mux)
 
 		return result
