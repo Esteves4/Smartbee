@@ -286,8 +286,7 @@ class GsmClient:
 			data = ""
 
 		return index
-
-			gi
+		
 	def waitResponse(self, timeout,  r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
 		data = ""
 		return self.waitResponse(timeout, data, r1, r2, r3, r4, r5)
