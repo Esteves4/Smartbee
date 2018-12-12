@@ -1,6 +1,7 @@
-import time
-import serial
+import time 
+import serial 
 import TinyGsmFifo
+
 
 class GsmClient:
 	REG_UNREGISTERED = 0
@@ -98,12 +99,13 @@ class GsmClient:
 	
 	def getRegistrationStatus(self):
 		self.sendAT("+CREG?")
-		if(self.waitResponse(r1 = "\r\n+CREG:") != 1):
-			return REG_UNKOWN 
+		if(self.waitResponse(r1="\r\n+CREG:") != 1):
+			return self.REG_UNKOWN 
 
 		self.streamSkipUntil(',') #Skip format (0)
 
-		status = int(self.ser.read_until(','))
+		status = int(self.ser.read_until('\n'))
+
 		self.waitResponse()
 		
 		return status
@@ -128,8 +130,6 @@ class GsmClient:
 			if(self.isNetworkConnected()):
 				return True
 			time.sleep(0.25)
-			end = self.millis()
-			print(end)
 		return False
 	
 	def gprsConnect(self,apn, user = None, pwd = None):
@@ -279,6 +279,7 @@ class GsmClient:
 					print("### Closed: ", mux)
 
 			end = self.millis()
+			if index: break
 	
 		if not index:
 			data = data.lstrip()
@@ -293,9 +294,8 @@ class GsmClient:
 	def streamSkipUntil(self, c, timeout = 3000):
 		start = self.millis()
 		while self.millis() - start < timeout:   
-			while self.millis() - start < timeout and self.ser.in_waiting <= 0:
-				if(self.ser.read() == c):
-					return True
+			if(self.ser.read() == c):
+				return True
 			
 		return False
 		
