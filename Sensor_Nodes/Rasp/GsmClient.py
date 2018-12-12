@@ -232,7 +232,7 @@ class GsmClient:
 
 		while end - start < timeout:
 			while self.ser.in_waiting > 0:
-				a = self.ser.read(self.ser.in_waiting)
+				a = self.ser.read()
 
 				if a <= 0:
 					continue
@@ -284,7 +284,7 @@ class GsmClient:
 			if(len(data)):
 				print("### Unhandled:", data)
 			data = ""
-
+		print(data)
 		return index
 
 
