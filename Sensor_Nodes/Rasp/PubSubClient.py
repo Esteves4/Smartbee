@@ -69,10 +69,10 @@ class PubSubClient:
 	def connect(self, id, user, password):
 		return self.connect(id, user, password, 0, 0, 0, 0)
 
-	def connect(id, willTopic, willQos, willRetain, willMessage):
+	def connect(self, id, willTopic, willQos, willRetain, willMessage):
 		return self.connect(id, None, None, willTopic, willQos, willRetain, willMessage) 
 		
-	def connect(id, user, user, password, willTopic, willQos, willRetain, willMessage)
+	def connect(self, id, user, password, willTopic, willQos, willRetain, willMessage)
 		if (not connected()):
 			result = 0
 
