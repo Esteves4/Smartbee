@@ -225,14 +225,7 @@ class GsmClient:
 		self.ser.write(head)
 		time.sleep(1)
 
-	def waitResponse(self, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
-		return self.waitResponse(1000, r1, r2, r3, r4, r5)
-		
-	def waitResponse(self, timeout,  r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
-		data = ""
-		return self.waitResponse(timeout, data, r1, r2, r3, r4, r5)
-		
-	def waitResponse(self, timeout, data, r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
+	def waitResponse(self, timeout = 1000, data = "", r1 = 'OK\r\n', r2 = 'ERROR\r\n', r3 = None, r4 = None, r5=None):
 		start = self.millis()
 		end = self.millis()
 		index = 0
@@ -321,13 +314,11 @@ class GsmClient:
 		self.rx.clear()
 
 	def write(self,buf, size):
+		if buf == None: return 0
+
 		self.maintain()
-		return self.modemSend(buf, size, mux)
 
-	def write(self, string):
-		if string == None: return 0
-
-		return self.write(string, len(string))
+		return self.modemSend(buf, size, self.mux)
 
 	def available(self):
 		if (not self.rx.size() and self.sock_connected):
@@ -343,7 +334,7 @@ class GsmClient:
 
 		return self.rx.size() + self.sock_available
 
-	def read(buf, size):
+	def read(buf = [], size = 1):
 		self.maintain()
 		cnt = 0
 
@@ -366,12 +357,6 @@ class GsmClient:
 
 		return cnt
 
-	def read(self):
-		c = []
-		if(self.read(c, 1) == 1):
-			return c
-		return -1
-
 	def flush(self):
 		self.ser.flush()
 
@@ -390,7 +375,7 @@ class GsmClient:
 				sock.sock_available = self.modemGetAvailable(mux)
 
 		while self.ser.in_waiting:
-			self.waitResponse(10, None, None)
+			self.waitResponse(10,"",None, None)
 
 	def modemGetConnected(self, mux):
 		self.sendAT("+CIPSTATUS=", mux)
