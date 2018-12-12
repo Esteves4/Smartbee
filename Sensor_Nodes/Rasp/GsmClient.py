@@ -98,10 +98,10 @@ class GsmClient:
 	
 	def getRegistrationStatus(self):
 		self.sendAT("+CREG?")
-		if(self.waitResponse("\r\n+CREG:") != 1):
+		if(self.waitResponse(r1 = "\r\n+CREG:") != 1):
 			return REG_UNKOWN 
 
-		self.streamskipUntil(',') #Skip format (0)
+		self.streamSkipUntil(',') #Skip format (0)
 
 		status = int(self.ser.read_until(','))
 		self.waitResponse()
@@ -123,10 +123,13 @@ class GsmClient:
 			 
 	def waitForNetwork(self,timeout = 60000):
 		start = self.millis()
+		end = self.millis()
 		while self.millis() - start < timeout:   
 			if(self.isNetworkConnected()):
 				return True
 			time.sleep(0.25)
+			end = self.millis()
+			print(end)
 		return False
 	
 	def gprsConnect(self,apn, user = None, pwd = None):
@@ -276,7 +279,7 @@ class GsmClient:
 					print("### Closed: ", mux)
 
 			end = self.millis()
-
+	
 		if not index:
 			data = data.lstrip()
 			if(len(data)):
@@ -287,7 +290,7 @@ class GsmClient:
 
 
 
-	def streamSkipUntil(self, c):
+	def streamSkipUntil(self, c, timeout = 3000):
 		start = self.millis()
 		while self.millis() - start < timeout:   
 			while self.millis() - start < timeout and self.ser.in_waiting <= 0:
@@ -401,8 +404,8 @@ class GsmClient:
 		if(self.waitResponse("+CIPRXGET:") != 1):
 			return 0
 
-		self.streamskipUntil(',') #Skip mode 2/3
-		self.streamskipUntil(',') #Skip mux
+		self.streamSkipUntil(',') #Skip mode 2/3
+		self.streamSkipUntil(',') #Skip mux
 		lenh = int(self.ser.read_until(','))
 		self.sockets[mux].sock_available = int(self.ser.read_until('\n'))
 
@@ -421,8 +424,8 @@ class GsmClient:
 		result = 0
 
 		if self.waitResponse("+CIPRXGET:") == 1:
-			self.streamskipUntil(',') #Skip mode 4
-			self.streamskipUntil(',') #Skip mux]
+			self.streamSkipUntil(',') #Skip mode 4
+			self.streamSkipUntil(',') #Skip mux]
 			result = int(self.ser.read_until('\n'))
 			self.waitResponse()
 
