@@ -42,7 +42,7 @@ class GsmClient:
 		if(self.waitResponse() != 1):
 			return False
 		
-		#self.getSimStatus(), fazer essa função
+		#self.getSimStatus(), fazer essa func
 		return True
 		
 	def setBaud(self,baud):
