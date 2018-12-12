@@ -119,7 +119,7 @@ class GsmClient:
 
 	def isNetworkConnected(self):
 		s = getRegistrationStatus()
-		return (s == self.REG_OK_HOME || s == self.REG_OK_ROAMING)
+		return (s == self.REG_OK_HOME or s == self.REG_OK_ROAMING)
 			 
 	def waitForNetwork(self,timeout = 60000):
 		start = self.millis()
@@ -258,7 +258,7 @@ class GsmClient:
 					mode = self.ser.read_until(',')
 					if(int(mode) == 1):
 						mux = int(self.ser.read_until('\n'))
-						if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT && self.sockets[mux]):
+						if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT and self.sockets[mux]):
 							self.sockets[mux].got_data = True
 
 						data = ""
@@ -269,7 +269,7 @@ class GsmClient:
 					coma = data.find(',', n1+2)
 
 					mux = int(data[n1+2:coma])
-					if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT && self.sockets[mux]):
+					if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT and self.sockets[mux]):
 						self.sockets[mux].sock_connected = False 
 
 					data = ""
