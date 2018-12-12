@@ -118,7 +118,7 @@ class GsmClient:
 		return res
 
 	def isNetworkConnected(self):
-		s = getRegistrationStatus()
+		s = self.getRegistrationStatus()
 		return (s == self.REG_OK_HOME or s == self.REG_OK_ROAMING)
 			 
 	def waitForNetwork(self,timeout = 60000):
