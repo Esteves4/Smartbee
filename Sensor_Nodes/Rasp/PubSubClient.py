@@ -72,11 +72,11 @@ class PubSubClient:
 	def connect(id, willTopic, willQos, willRetain, willMessage):
 		return self.connect(id, None, None, willTopic, willQos, willRetain, willMessage) 
 		
-	def connect(id, user, user, password, willTopic, willQos, willRetain, willMessage)
+	def connect(id, user, user, password, willTopic, willQos, willRetain, willMessage):
 		if (not connected()):
 			result = 0
 
-			if (domain not None):
+			if (domain != None):
 				result = self.client.connect(self.domain, self.port)
 			else:
 				result = self.client.connect(self.ip, self.port)
@@ -90,7 +90,7 @@ class PubSubClient:
 				if self.MQTT_VERSION == self.MQTT_VERSION_3_1:
 					d = [0x00, 0x06, 'M', 'Q','I','s','d', 'p', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 9
-				elif self.MQTT_VERSION == self.MQTT_VERSION_3_1_1
+				elif self.MQTT_VERSION == self.MQTT_VERSION_3_1_1:
 					d = [0x00, 0x04, 'M', 'Q', 'T', 'T', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 7
 
@@ -106,10 +106,10 @@ class PubSubClient:
 				else:
 					v = 0x02
 
-				if user not None:
+				if user != None:
 					v = v|0x80
 
-					if password not None:
+					if password != None:
 						v = v|(0x80>>1)
 
 				length += 1
@@ -125,10 +125,10 @@ class PubSubClient:
 					length = self.writeString(willTopic, self.buffer, length)
 					length = self.writeString(willMessage, self.buffer, length)
 
-				if user not None:
+				if user != None:
 					length = self.writeString(user, self.buffer, length)
 
-					if password not None:
+					if password != None:
 						length = self.writeString(password, self.buffer, length)
 
 				self.write(self.MQTTCONNECT, self.buffer, length-5)
@@ -189,7 +189,7 @@ class PubSubClient:
 			digit = lenh%128
 			lenh = lenh/128
 
-			if(lenh > 0)
+			if(lenh > 0):
 				digit |= 0x80
 
 			pos += 1
