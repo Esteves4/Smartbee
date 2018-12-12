@@ -38,7 +38,7 @@ class GsmClient:
 		self.sendAT("&FZ") #Factory + Reset
 		self.waitResponse()
 		
-		self.sendAT("&E0") #Echo off
+		self.sendAT("E0") #Echo off
 		if(self.waitResponse() != 1):
 			return False
 		
