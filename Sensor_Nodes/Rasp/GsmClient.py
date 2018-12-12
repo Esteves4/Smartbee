@@ -276,8 +276,6 @@ class GsmClient:
 					print("### Closed: ", mux)
 
 			end = self.millis()
-			if not index:
-				break
 
 		if not index:
 			data = data.lstrip()
