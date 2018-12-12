@@ -137,10 +137,10 @@ class GsmClient:
 		
 		# Set the Bearer for the IP 
 		self.sendAT("+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
-		self.self.waitResponse()
+		self.waitResponse()
 		
 		self.sendAT("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
-		self.self.waitResponse()
+		self.waitResponse()
 		
 		if(user and len(user) > 0):
 			self.sendAT("+SAPBR=3,1,\"USER\",\"", user, '"') # Set the user name
