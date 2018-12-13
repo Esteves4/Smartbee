@@ -4,6 +4,10 @@ import TinyGsmFifo
 
 
 class GsmClient:
+	SIM_ERROR = 0
+  	SIM_READY = 1
+  	SIM_LOCKED = 2
+
 	REG_UNREGISTERED = 0
 	REG_SEARCHING = 2
 	REG_DENIED = 3
@@ -44,11 +48,29 @@ class GsmClient:
 		if(self.waitResponse() != 1):
 			return False
 		
-		#self.getSimStatus(), fazer essa func
+		self.getSimStatus()
 		return True
 		
 	def setBaud(self,baud):
 		self.sendAT("+IPR=", str(baud))
+
+	def getSimStatus(timeout = 10000):
+		start = self.millis()
+		while self.millis - start < timeout:
+			self.sendAT("+CPIN?")
+			if(self.waitResponse(r1="\r\n+CPIN:") != 1):
+				time.time(1)
+				continue
+			status = waitResponse(r1="READY", r2="SIM PIN", r3="SIM PUK", r4="NOT INSERTED")
+			waitResponse()
+			if(status == 2 or status == 3):
+				return self.SIM_LOCKED
+			elif(status == 1):
+				return self.SIM_READY
+			else:
+				return self.SIM_ERROR
+
+		return self.SIM_ERROR
 	
 	def testAT(self,timeout = 10000):
 		start = self.millis()
@@ -307,7 +329,7 @@ class GsmClient:
 		self.stop()
 		self.rx.clear()
 		self.sock_connected = self.modemConnect(host, port, self.mux)
-		return sock_connected
+		return self.sock_connected
 
 	def stop(self):
 		self.sendAT("\r\n+CIPCLOSE=", str(self.mux))
