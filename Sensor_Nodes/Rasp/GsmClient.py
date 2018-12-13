@@ -48,7 +48,7 @@ class GsmClient:
 		return True
 		
 	def setBaud(self,baud):
-		self.sendAT("+IPR=", baud)
+		self.sendAT("+IPR=", str(baud))
 	
 	def testAT(self,timeout = 10000):
 		start = self.millis()
@@ -224,7 +224,7 @@ class GsmClient:
 				
 	def streamWrite(self, head, *tail):
 		for i in tail:
-			head += ''.join(str(i))
+			head += ''.join(i)
 
 		self.ser.write(head)
 		time.sleep(1)
@@ -310,7 +310,7 @@ class GsmClient:
 		return sock_connected
 
 	def stop(self):
-		self.sendAT("\r\n+CIPCLOSE=", self.mux)
+		self.sendAT("\r\n+CIPCLOSE=", str(self.mux))
 		self.sock_connected = False
 		self.waitResponse()
 		self.rx.clear()
@@ -380,17 +380,17 @@ class GsmClient:
 			self.waitResponse(timeout=10,r1=None, r2=None)
 
 	def modemGetConnected(self, mux):
-		self.sendAT("+CIPSTATUS=", mux)
+		self.sendAT("+CIPSTATUS=", str(mux))
 		res = self.waitResponse(r1=",\"CONNECTED\"", r2="\"CLOSED\"",r3=",\"CLOSING\"", r4=",\"INITIAL\"")
 		self.waitResponse()
 		return 1 == res
 
-	def modemSend(self,buff, len, mux):
-		self.sendAT("+CIPSEND=",mux,",", len)
+	def modemSend(self,buff, lenh, mux):
+		self.sendAT("+CIPSEND=",str(mux),",", str(lenh))
 		if self.waitResponse(r1=">") != 1:
 			return  0
 
-		self.ser.write(buff[0:len])
+		self.ser.write(buff[0:lenh])
 		self.ser.flush()
 
 		if self.waitResponse(r1="\r\nDATA ACCEPT:") != 1:
@@ -400,7 +400,7 @@ class GsmClient:
 		return int(self.streamSkipUntil('\n'))
 
 	def modemRead(size, mux):
-		self.sendAT("+CIPRXGET=2", mux, ',', size)
+		self.sendAT("+CIPRXGET=2", str(mux), ',', str(size))
 
 		if(self.waitResponse(r1="+CIPRXGET:") != 1):
 			return 0
@@ -421,7 +421,7 @@ class GsmClient:
 		return len
 
 	def modemGetAvailable(self, mux):
-		self.sendAT("+CIPRXGET=4,", mux)
+		self.sendAT("+CIPRXGET=4,", str(mux))
 		result = 0
 
 		if self.waitResponse(r1="+CIPRXGET:") == 1:
@@ -437,7 +437,7 @@ class GsmClient:
 
 	def modemConnect(self, host, port, mux, ssl = False):
 		rsp = None
-		self.sendAT("+CPSTART=", mux, ',', "\"TCP", "\",\"", host, "\",", port)
+		self.sendAT("+CPSTART=", str(mux), ',', "\"TCP", "\",\"", str(host), "\",", str(port))
 		rsp = waitResponse(75000,
 												"CONNECT OK\r\n",
 												"CONNECT FAIL\r\n",
