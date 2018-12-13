@@ -1,7 +1,6 @@
-import time 
-import serial 
+import time
+import serial
 import TinyGsmFifo
-
 
 class GsmClient:
 	REG_UNREGISTERED = 0
@@ -39,8 +38,7 @@ class GsmClient:
 		self.sendAT("&FZ") #Factory + Reset
 		self.waitResponse()
 		
-		#self.sendAT("E0") #Echo off
-		self.sendAT("E1") #Echo on
+		self.sendAT("E0") #Echo off
 		if(self.waitResponse() != 1):
 			return False
 		
@@ -100,13 +98,12 @@ class GsmClient:
 	
 	def getRegistrationStatus(self):
 		self.sendAT("+CREG?")
-		if(self.waitResponse(r1="\r\n+CREG:") != 1):
-			return self.REG_UNKOWN 
+		if(self.waitResponse'',"\r\n+CREG:") != 1):
+			return REG_UNKOWN 
 
-		self.streamSkipUntil(',') #Skip format (0)
+		self.streamskipUntil(',') #Skip format (0)
 
-		status = int(self.ser.read_until('\n'))
-
+		status = int(self.ser.read_until(','))
 		self.waitResponse()
 		
 		return status
@@ -131,6 +128,8 @@ class GsmClient:
 			if(self.isNetworkConnected()):
 				return True
 			time.sleep(0.25)
+			end = self.millis()
+			print(end)
 		return False
 	
 	def gprsConnect(self,apn, user = None, pwd = None):
@@ -138,10 +137,10 @@ class GsmClient:
 		
 		# Set the Bearer for the IP 
 		self.sendAT("+SAPBR=3,1,\"Contype\",\"GPRS\"")  # Set the connection type to GPRS
-		self.waitResponse()
+		self.self.waitResponse()
 		
 		self.sendAT("+SAPBR=3,1,\"APN\",\"", apn, '"') # Set the APN
-		self.waitResponse()
+		self.self.waitResponse()
 		
 		if(user and len(user) > 0):
 			self.sendAT("+SAPBR=3,1,\"USER\",\"", user, '"') # Set the user name
@@ -280,8 +279,8 @@ class GsmClient:
 					print("### Closed: ", mux)
 
 			end = self.millis()
-			if index: break
-	
+			print(end - start)
+
 		if not index:
 			data = data.lstrip()
 			if(len(data)):
@@ -292,11 +291,12 @@ class GsmClient:
 
 
 
-	def streamSkipUntil(self, c, timeout = 3000):
+	def streamSkipUntil(self, c):
 		start = self.millis()
 		while self.millis() - start < timeout:   
-			if(self.ser.read() == c):
-				return True
+			while self.millis() - start < timeout and self.ser.in_waiting <= 0:
+				if(self.ser.read() == c):
+					return True
 			
 		return False
 		
@@ -405,8 +405,8 @@ class GsmClient:
 		if(self.waitResponse("+CIPRXGET:") != 1):
 			return 0
 
-		self.streamSkipUntil(',') #Skip mode 2/3
-		self.streamSkipUntil(',') #Skip mux
+		self.streamskipUntil(',') #Skip mode 2/3
+		self.streamskipUntil(',') #Skip mux
 		lenh = int(self.ser.read_until(','))
 		self.sockets[mux].sock_available = int(self.ser.read_until('\n'))
 
@@ -425,8 +425,8 @@ class GsmClient:
 		result = 0
 
 		if self.waitResponse("+CIPRXGET:") == 1:
-			self.streamSkipUntil(',') #Skip mode 4
-			self.streamSkipUntil(',') #Skip mux]
+			self.streamskipUntil(',') #Skip mode 4
+			self.streamskipUntil(',') #Skip mux]
 			result = int(self.ser.read_until('\n'))
 			self.waitResponse()
 
