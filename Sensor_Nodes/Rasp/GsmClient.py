@@ -459,7 +459,7 @@ class GsmClient:
 
 	def modemConnect(self, host, port, mux, ssl = False):
 		rsp = None
-		self.sendAT("+CPSTART=", str(mux), ',', "\"TCP", "\",\"", str(host), "\",", str(port))
+		self.sendAT("+CIPSTART=", str(mux), ',', "\"TCP", "\",\"", str(host), "\",", str(port))
 		rsp = self.waitResponse(75000,
 									"CONNECT OK\r\n",
 									"CONNECT FAIL\r\n",
