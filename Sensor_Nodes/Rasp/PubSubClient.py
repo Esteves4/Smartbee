@@ -167,6 +167,7 @@ class PubSubClient:
 		posFinal = pos+i
 		buf[pos:posFinal] = string[0:i]
 		pos = posFinal
+		return pos
 
 	def write(self, header, buf, length):
 		lenBuf = []
