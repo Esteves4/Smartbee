@@ -79,7 +79,7 @@ class PubSubClient:
 				j = 0
 
 				if self.MQTT_VERSION == self.MQTT_VERSION_3_1:
-					d = [0x00, 0x06, 'M', 'Q','I','s','d', 'p', self.MQTT_VERSION]
+					d = [0x00,0x06, 'M', 'Q','I','s','d', 'p', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 9
 				elif self.MQTT_VERSION == self.MQTT_VERSION_3_1_1:
 					d = [0x00, 0x04, 'M', 'Q', 'T', 'T', self.MQTT_VERSION]
@@ -88,8 +88,8 @@ class PubSubClient:
 				length += 1
 				lengthFinal = length+self.MQTT_HEADER_VERSION_LENGTH
 				self.buffer[length:lengthFinal] = d[0:self.MQTT_HEADER_VERSION_LENGTH]
-
-				length = lengthFinal
+				
+				length = lengthFinal-1
 				
 				v = 0
 				if willTopic:
@@ -103,7 +103,7 @@ class PubSubClient:
 					if password != None:
 						v = v|(0x80>>1)
 
-				length += 1
+				length+=1 
 				self.buffer[length] = v
 
 				length += 1
@@ -122,8 +122,9 @@ class PubSubClient:
 					if password != None:
 						length = self.writeString(password, self.buffer, length)
 
+				print("buffer:",self.buffer[0:])
 				self.write(self.MQTTCONNECT, self.buffer, length-5)
-
+								
 				self.lastInActivity = self.lastOutActivity = self.millis()
 
 				while( not self.client.available()):
@@ -166,12 +167,12 @@ class PubSubClient:
 		pos += 1
 		posFinal = pos+i
 		buf[pos:posFinal] = string[0:i]
-		pos = posFinal
+		pos = posFinal-1
 		return pos
 
 	def write(self, header, buf, length):
 		lenBuf = [0]*4
-		llen = 0
+		llen = 1
 		digit = 0
 		pos = 0
 		rc = 0
@@ -187,11 +188,12 @@ class PubSubClient:
 			pos += 1
 			lenBuf[pos] = digit
 			llen += 1
-
 		buf[4-llen] = header
-		buf[5-llen: 5] = lenBuf[0:llen]
-
-		rc = self.client.write(buf[4-llen:], length+1+llen)
+		for i in range(0, llen):
+			buf[5-llen+i] = lenBuf[i]
+		
+		print("buffer:",buf[4-llen:length+5])
+		c = self.client.write(buf[4-llen:], length+1+llen)
 		self.lastOutActivity = self.millis()
 		return (rc == 1+llen+length)
 

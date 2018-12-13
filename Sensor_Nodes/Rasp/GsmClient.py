@@ -293,7 +293,7 @@ class GsmClient:
 				elif data.endswith("CLOSED\r\n"):
 					n1 = data.rfind("\r\n",0,len(data) - 8)
 					coma = data.find(',', n1+2)
-					print(data[n1+2:coma])
+					
 					mux = int(data[n1+2:coma])
 					if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT and self.sockets[mux]):
 						self.sockets[mux].sock_connected = False 
@@ -341,7 +341,7 @@ class GsmClient:
 		if buf == None: return 0
 
 		self.maintain()
-
+		print("header:",buf[0:size])
 		return self.modemSend(buf, size, self.mux)
 
 	def available(self):
