@@ -64,7 +64,7 @@ class PubSubClient:
 		return time.time() * 1000
 
 	def connect(self, id, user = None, password = None, willTopic = 0, willQos = 0, willRetain = 0, willMessage = 0):
-		if (not connected()):
+		if (not self.connected()):
 			result = 0
 
 			if (self.domain != None):
