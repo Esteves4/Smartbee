@@ -55,7 +55,7 @@ class GsmClient:
 		while self.millis() - start < timeout:
 			self.sendAT("")
 			
-			if(self.waitResponse(200) == 1):
+			if(self.waitResponse(timeout=200) == 1):
 				time.sleep(0.1)
 				return True
 			
@@ -82,16 +82,16 @@ class GsmClient:
 			return False
 		
 		self.sendAT("+CLTS=1")
-		if self.waitResponse(10000) != 1:
+		if self.waitResponse(timeout=10000) != 1:
 			return False
 		
 		self.sendAT("&W") 
 		self.waitResponse()
 		self.sendAT("+CFUN=0")
-		if self.waitResponse(10000) != 1:
+		if self.waitResponse(timeout=10000) != 1:
 			return False
 		self.sendAT("+CFUN=1,1")
-		if self.waitResponse(10000) != 1:
+		if self.waitResponse(timeout=10000) != 1:
 			return False
 		
 		time.sleep(3)
@@ -113,7 +113,7 @@ class GsmClient:
 	
 	def getSignalQuality(self):
 		self.sendAT("+CSQ")
-		if self.waitResponse("\r\n+CSQ:") != 1:
+		if self.waitResponse(r1="\r\n+CSQ:") != 1:
 			return 99
 		res = int(self.ser.read_until(','))
 		self.waitResponse()
@@ -153,20 +153,20 @@ class GsmClient:
 			
 		# Define the PDP context
 		self.sendAT("+CGACT=1,1")
-		self.waitResponse(60000)
+		self.waitResponse(timeout=60000)
 		
 		# Open the defined GPRS bearer context
 		self.sendAT("+SAPBR=1,1")
-		self.waitResponse(85000)
+		self.waitResponse(timeout=85000)
 		
 		# Query the GPRS bearer context status
 		self.sendAT("+SAPBR=2,1")
-		if(self.waitResponse(30000) != 1):
+		if(self.waitResponse(timeout=30000) != 1):
 			return False
 		
 		# Attach to GPRS
 		self.sendAT("+CGATT=1")
-		if(self.waitResponse(60000) != 1):
+		if(self.waitResponse(timeout=60000) != 1):
 			return False
 		
 		# Set to multi-IP
@@ -186,17 +186,17 @@ class GsmClient:
 		
 		# Start Task and Set APN, USER NAME, PASSWORD
 		self.sendAT("+CSTT=\"", apn, "\",\"", user, "\",\"", pwd, "\"")
-		if(self.waitResponse(60000) != 1):
+		if(self.waitResponse(timeout=60000) != 1):
 			return False
 		
 		# Bring Up Wireless Connection with GPRS or CSD
 		self.sendAT("+CIICR")
-		if(self.waitResponse(60000) != 1):
+		if(self.waitResponse(timeout=60000) != 1):
 			return False
 		
 		# Get Local IP Address, only assigned after connection
 		self.sendAT("+CIFSR;E0")
-		if(self.waitResponse(10000) != 1):
+		if(self.waitResponse(timeout=10000) != 1):
 			return False
 		
 		# Configure Domain name Server (DNS)
@@ -209,11 +209,11 @@ class GsmClient:
 	def gprsDisconnect(self):
 		# Shut the TCP/IP connection
 		self.sendAT("+CIPSHUT")
-		if(self.waitResponse(60000) != 1):
+		if(self.waitResponse(timeout=60000) != 1):
 			return False
 		
 		self.sendAT("+CGATT=0")  # Deactivate the bearer context
-		if(self.waitResponse(60000) != 1):
+		if(self.waitResponse(timeout=60000) != 1):
 			return False
 		
 		return True
@@ -377,23 +377,23 @@ class GsmClient:
 				sock.sock_available = self.modemGetAvailable(mux)
 
 		while self.ser.in_waiting:
-			self.waitResponse(10,"",None, None)
+			self.waitResponse(timeout=10,r1=None, r2=None)
 
 	def modemGetConnected(self, mux):
 		self.sendAT("+CIPSTATUS=", mux)
-		res = self.waitResponse(",\"CONNECTED\"", "\"CLOSED\"",",\"CLOSING\"", ",\"INITIAL\"")
+		res = self.waitResponse(r1=",\"CONNECTED\"", r2="\"CLOSED\"",r3=",\"CLOSING\"", r4=",\"INITIAL\"")
 		self.waitResponse()
 		return 1 == res
 
 	def modemSend(self,buff, len, mux):
 		self.sendAT("+CIPSEND=",mux,",", len)
-		if self.waitResponse(">") != 1:
+		if self.waitResponse(r1=">") != 1:
 			return  0
 
 		self.ser.write(buff[0:len])
 		self.ser.flush()
 
-		if self.waitResponse("\r\nDATA ACCEPT:") != 1:
+		if self.waitResponse(r1="\r\nDATA ACCEPT:") != 1:
 			return 0
 
 		self.streamSkipUntil(',') #Skip mux
@@ -402,7 +402,7 @@ class GsmClient:
 	def modemRead(size, mux):
 		self.sendAT("+CIPRXGET=2", mux, ',', size)
 
-		if(self.waitResponse("+CIPRXGET:") != 1):
+		if(self.waitResponse(r1="+CIPRXGET:") != 1):
 			return 0
 
 		self.streamSkipUntil(',') #Skip mode 2/3
@@ -424,7 +424,7 @@ class GsmClient:
 		self.sendAT("+CIPRXGET=4,", mux)
 		result = 0
 
-		if self.waitResponse("+CIPRXGET:") == 1:
+		if self.waitResponse(r1="+CIPRXGET:") == 1:
 			self.streamSkipUntil(',') #Skip mode 4
 			self.streamSkipUntil(',') #Skip mux]
 			result = int(self.ser.read_until('\n'))
