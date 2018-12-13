@@ -54,7 +54,7 @@ class PubSubClient:
 		self.ip = None
 		self.domain = None
 		self.port = None
-		self.buffer = [0]*MQTT_MAX_PACKET_SIZE
+		self.buffer = [0]*self.MQTT_MAX_PACKET_SIZE
 		self.nextMsgId = 0
 		self.lastOutActivity = None
 		self.lastInActivity = None
