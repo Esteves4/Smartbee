@@ -224,7 +224,7 @@ class GsmClient:
 				
 	def streamWrite(self, head, *tail):
 		for i in tail:
-			head += ''.join(i)
+			head += ''.join(str(i))
 
 		self.ser.write(head)
 		time.sleep(1)
