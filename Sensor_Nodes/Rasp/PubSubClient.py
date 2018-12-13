@@ -191,7 +191,7 @@ class PubSubClient:
 		buf[4-llen] = header
 		buf[5-llen: 5] = lenBuf[0:llen]
 
-		rc = self.client.write(buf+(4-llen), length+1+llen)
+		rc = self.client.write(buf[4-llen:], length+1+llen)
 		self.lastOutActivity = self.millis()
 		return (rc == 1+llen+length)
 
