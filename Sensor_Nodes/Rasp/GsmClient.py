@@ -54,7 +54,7 @@ class GsmClient:
 	def setBaud(self,baud):
 		self.sendAT("+IPR=", str(baud))
 
-	def getSimStatus(timeout = 10000):
+	def getSimStatus(self,timeout = 10000):
 		start = self.millis()
 		while self.millis - start < timeout:
 			self.sendAT("+CPIN?")
