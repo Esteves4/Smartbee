@@ -63,16 +63,7 @@ class PubSubClient:
 	def millis(self):
 		return time.time() * 1000
 
-	def connect(self,id):
-		return self.connect(id, None, None, 0, 0, 0, 0)
-
-	def connect(self, id, user, password):
-		return self.connect(id, user, password, 0, 0, 0, 0)
-
-	def connect(self, id, willTopic, willQos, willRetain, willMessage):
-		return self.connect(id, None, None, willTopic, willQos, willRetain, willMessage) 
-		
-	def connect(self, id, user, password, willTopic, willQos, willRetain, willMessage):
+	def connect(self, id, user = None, password = None, willTopic = 0, willQos = 0, willRetain = 0, willMessage = 0):
 		if (not connected()):
 			result = 0
 
@@ -332,10 +323,7 @@ class PubSubClient:
 
 		return False
 
-	def subscribe(self, topic):
-		return self.subscribe(topic, 0)
-
-	def subscribe(self, topic, qos):
+	def subscribe(self, topic, qos =0):
 		if(qos > 1):
 			return False
 
