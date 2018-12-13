@@ -293,7 +293,7 @@ class GsmClient:
 				elif data.endswith("CLOSED\r\n"):
 					n1 = data.rfind("\r\n", len(data) - 8)
 					coma = data.find(',', n1+2)
-
+					print(data[n1+2:coma])
 					mux = int(data[n1+2:coma])
 					if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT and self.sockets[mux]):
 						self.sockets[mux].sock_connected = False 
@@ -403,7 +403,7 @@ class GsmClient:
 
 	def modemGetConnected(self, mux):
 		self.sendAT("+CIPSTATUS=", str(mux))
-		res = self.waitResponse(r1=",\"CONNECTED\"", r2="\"CLOSED\"",r3=",\"CLOSING\"", r4=",\"INITIAL\"")
+		res = self.waitResponse(r1=",\"CONNECTED\"", r2="\"CLOSED\"",r3=",\"CLOSING\"", r4=",\"INITIAL\"", r5="OK\r\n")
 		self.waitResponse()
 		return 1 == res
 
