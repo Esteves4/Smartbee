@@ -170,7 +170,7 @@ class PubSubClient:
 		return pos
 
 	def write(self, header, buf, length):
-		lenBuf = []
+		lenBuf = [0]*4
 		llen = 0
 		digit = 0
 		pos = 0
