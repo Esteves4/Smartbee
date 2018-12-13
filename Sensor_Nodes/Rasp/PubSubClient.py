@@ -132,7 +132,7 @@ class PubSubClient:
 					if t - self.lastOutActivity >= self.MQTT_SOCKET_TIMEOUT*1000:
 						self.state = self.MQTT_CONNECTION_TIMEOUT
 						self.client.stop()
-						return false
+						return False
 
 				llen = 0
 				lenh = readPacket(llen)
