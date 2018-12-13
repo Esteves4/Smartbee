@@ -101,7 +101,7 @@ class GsmClient:
 	def getRegistrationStatus(self):
 		self.sendAT("+CREG?")
 		if(self.waitResponse(r1="\r\n+CREG:") != 1):
-			return self.REG_UNKOWN 
+			return self.REG_UNKNOWN 
 
 		self.streamSkipUntil(',') #Skip format (0)
 
