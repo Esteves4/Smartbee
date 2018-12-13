@@ -56,7 +56,7 @@ class GsmClient:
 
 	def getSimStatus(self,timeout = 10000):
 		start = self.millis()
-		while self.millis - start < timeout:
+		while self.millis() - start < timeout:
 			self.sendAT("+CPIN?")
 			if(self.waitResponse(r1="\r\n+CPIN:") != 1):
 				time.time(1)
@@ -86,7 +86,7 @@ class GsmClient:
 		return False
 	
 	def factoryDefault(self):
-		self.sendAT("&FZE0&W")  # Factory + Reset + Echo Off + Write
+		self.sendAT("&FZE1&W")  # Factory + Reset + Echo Off + Write
 		self.waitResponse()
 		self.sendAT("+IPR=0")   # Auto-baud
 		self.waitResponse()
