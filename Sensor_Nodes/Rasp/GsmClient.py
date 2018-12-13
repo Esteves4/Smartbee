@@ -306,7 +306,7 @@ class GsmClient:
 	def connect(self,host, port):
 		self.stop()
 		self.rx.clear()
-		self.sock_connected = self.modemConnect(host, port, mux)
+		self.sock_connected = self.modemConnect(host, port, self.mux)
 		return sock_connected
 
 	def stop(self):

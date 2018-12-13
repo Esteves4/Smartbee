@@ -49,7 +49,7 @@ class PubSubClient:
 
 	def __init__(self, client):
 		self.state = self.MQTT_DISCONNECTED
-		self.setClient(client)
+		self.client = client
 		self.stream = None
 		self.ip = None
 		self.domain = None
@@ -67,7 +67,7 @@ class PubSubClient:
 		if (not connected()):
 			result = 0
 
-			if (domain != None):
+			if (self.domain != None):
 				result = self.client.connect(self.domain, self.port)
 			else:
 				result = self.client.connect(self.ip, self.port)
