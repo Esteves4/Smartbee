@@ -299,7 +299,7 @@ class GsmClient:
 						self.sockets[mux].sock_connected = False 
 
 					data = ""
-					print("### Closed: ", mux)
+					print("### Closed: %s" %mux)
 
 			end = self.millis()
 			if index: break
