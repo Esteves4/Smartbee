@@ -291,7 +291,7 @@ class GsmClient:
 					else:
 						data += mode
 				elif data.endswith("CLOSED\r\n"):
-					n1 = data.rfind("\r\n", len(data) - 8)
+					n1 = data.rfind("\r\n", end=len(data) - 8)
 					coma = data.find(',', n1+2)
 					print(data[n1+2:coma])
 					mux = int(data[n1+2:coma])
