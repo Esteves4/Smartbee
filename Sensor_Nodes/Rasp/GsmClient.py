@@ -217,7 +217,7 @@ class GsmClient:
 			return False
 		
 		# Get Local IP Address, only assigned after connection
-		self.sendAT("+CIFSR;E0")
+		self.sendAT("+CIFSR;E1")
 		if(self.waitResponse(timeout=10000) != 1):
 			return False
 		
