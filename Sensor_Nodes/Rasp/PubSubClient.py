@@ -310,16 +310,8 @@ class PubSubClient:
 		result = self.client.read()
 		return (True, result)
 
-	def publish(self, topic, payload):
-		return self.publish(topic, payload, len(payload), False)
-
-	def publish(self, topic, payload, retained):
-		return self.publish(topic, payload, len(payload), retained)
-
-	def publish(self, topic, payload, plength):
-		return publish(topic, payload, plength, False)
-
-	def publish(self,topic, payload, plength, retained):
+	def publish(self,topic, payload, retained = False):
+		plength = len(payload)
 		if(self.connected()):
 			if (self.MQTT_MAX_PACKET_SIZE < 5 + 2 + len(topic) + plength):
 				# Too  long
