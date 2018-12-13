@@ -460,12 +460,7 @@ class GsmClient:
 	def modemConnect(self, host, port, mux, ssl = False):
 		rsp = None
 		self.sendAT("+CIPSTART=", str(mux), ',', "\"TCP", "\",\"", str(host), "\",", str(port))
-		rsp = self.waitResponse(75000,
-									"CONNECT OK\r\n",
-									"CONNECT FAIL\r\n",
-									"ALREADY CONNECT\r\n",
-									"ERROR\r\n",
-									"CLOSE OK\r\n") # Happens when HTTPS handshake fails
+		rsp = self.waitResponse(75000,r1="CONNECT OK\r\n",r2="CONNECT FAIL\r\n",r3="ALREADY CONNECT\r\n",r4="ERROR\r\n",r5="CLOSE OK\r\n") # Happens when HTTPS handshake fails
 		return (1 == rsp)
 
 
