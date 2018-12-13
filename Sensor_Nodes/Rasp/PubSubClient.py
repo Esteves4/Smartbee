@@ -79,10 +79,10 @@ class PubSubClient:
 				j = 0
 
 				if self.MQTT_VERSION == self.MQTT_VERSION_3_1:
-					d = [str(0x00), str(0x06), 'M', 'Q','I','s','d', 'p', str(self.MQTT_VERSION)]
+					d = [0x00, 0x06, 'M', 'Q','I','s','d', 'p', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 9
 				elif self.MQTT_VERSION == self.MQTT_VERSION_3_1_1:
-					d = [str(0x00), str(0x04), 'M', 'Q', 'T', 'T', str(self.MQTT_VERSION)]
+					d = [0x00, 0x04, 'M', 'Q', 'T', 'T', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 7
 
 				length += 1
@@ -104,13 +104,13 @@ class PubSubClient:
 						v = v|(0x80>>1)
 
 				length += 1
-				self.buffer[length] = str(v)
+				self.buffer[length] = v
 
 				length += 1
-				self.buffer[length] = str(((self.MQTT_KEEPALIVE) >> 8))
+				self.buffer[length] = ((self.MQTT_KEEPALIVE) >> 8)
 
 				length += 1
-				self.buffer[length] = str(((self.MQTT_KEEPALIVE) & 0xFF))
+				self.buffer[length] = ((self.MQTT_KEEPALIVE) & 0xFF)
 				length = self.writeString(id, self.buffer, length)
 				if willTopic:
 					length = self.writeString(willTopic, self.buffer, length)
@@ -185,10 +185,10 @@ class PubSubClient:
 				digit |= 0x80
 
 			pos += 1
-			lenBuf[pos] = str(digit)
+			lenBuf[pos] = digit
 			llen += 1
 
-		buf[4-llen] = str(header)
+		buf[4-llen] = header
 		buf[5-llen: 5] = lenBuf[0:llen]
 
 		rc = self.client.write(buf[4-llen:], length+1+llen)
