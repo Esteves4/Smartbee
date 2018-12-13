@@ -61,8 +61,8 @@ class GsmClient:
 			if(self.waitResponse(r1="\r\n+CPIN:") != 1):
 				time.time(1)
 				continue
-			status = waitResponse(r1="READY", r2="SIM PIN", r3="SIM PUK", r4="NOT INSERTED")
-			waitResponse()
+			status = self.waitResponse(r1="READY", r2="SIM PIN", r3="SIM PUK", r4="NOT INSERTED")
+			self.waitResponse()
 			if(status == 2 or status == 3):
 				return self.SIM_LOCKED
 			elif(status == 1):
