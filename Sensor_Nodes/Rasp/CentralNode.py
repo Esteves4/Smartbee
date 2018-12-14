@@ -38,7 +38,7 @@ def receiveData():
 	network.update()
 
 	if(network.available()):
-		header, payload = network.read(41)
+		header, payload = network.read(23)
 		bufferData = list(struct.unpack('ifffffb', payload))
 		return True, bufferData
 

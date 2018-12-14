@@ -240,14 +240,14 @@ void loop() {
       
 			//memory.get(j, bufferADC);
 
-      payload_audio.audio[i] = ++bufferADC;
-      ++i;
-      if(i == audio_size){
-        if( !enviarAudio() ){
-          //break;
-        }
-        i = 0;
-      }
+//      payload_audio.audio[i] = ++bufferADC;
+//      ++i;
+//      if(i == audio_size){
+//        if( !enviarAudio() ){
+//          //break;
+//        }
+//        i = 0;
+//      }
 			
 		}
     end = millis();
