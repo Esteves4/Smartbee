@@ -59,9 +59,7 @@ struct payload_t {
 	float tensao_r;
 	float peso;
 	char erro_vec;
-	char timestamp[20];
 };
-
 
 #define audio_size 100
 
@@ -69,7 +67,6 @@ struct payload_a {
   char colmeia;
   uint16_t audio[audio_size];
 };
-
 
 #define E_DHT   0
 #define E_TEN_C 1
@@ -166,11 +163,11 @@ void setup(void) {
   memory.clearMemory();
 
 	/* nRF24L01 configuration*/ 
-	//SPI.begin();                                                  // Start SPI protocol
+	//SPI.begin();                                                // Start SPI protocol
 	radio.begin();                                                // Start nRF24L01
 	radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-	radio.setPayloadSize(32);                        // Set payload Size
-	radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
+	radio.setPayloadSize(32);                                     // Set payload Size
+	radio.setPALevel(RF24_PA_HIGH);                                // Set Power Amplifier level
 	radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
 	network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
 
