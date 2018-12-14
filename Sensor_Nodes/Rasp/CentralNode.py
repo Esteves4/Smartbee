@@ -1,8 +1,12 @@
-import GsmClient as gsm
-import PubSubClient as MQTT
-from struct import *
-from RF24 import *
+import GsmClient as gsm 
+import PubSubClient as MQTT 
+import time 
+import datetime 
+import os
+from struct import * 
+from RF24 import * 
 from RF24Network import *
+
 
 # SIM800L Configuration
 SerialAT = gsm.GsmClient('/dev/ttyAMA0', 57600)
@@ -20,26 +24,34 @@ pass_MQTT = "123456"
 
 
 # NRF24L01 Configuration
-radio = RF24(RPI_V2_GPIO_P1_15, RPI_V2_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
+octlit = lambda n:int(n,8)
+
+radio = RF24(RPI_GPIO_P1_22, RPI_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
 network = RF24Network(radio)
-this_node = 00
+this_node = octlit("00")
 
 radio.begin()
 time.sleep(0.1)
 radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
 radio.setDataRate(RF24_250KBPS);                              # Set transmission rate
 network.begin(120, this_node)    # channel 120
+radio.printDetails()
 
 # Control Variables
 counter = 0
 MAX_COUNTER = 5
 
+if not os.path.exists("coletas/"):
+	os.makedirs("colets/")
+if not os.path.exists("toSend/"):
+	os.makedirs("toSend/")
+
 def receiveData():
 	network.update()
 
 	if(network.available()):
-		header, payload = network.read(23)
-		bufferData = list(struct.unpack('ifffffb', payload))
+		header, payload = network.read(25)
+		bufferData = list(unpack('ffffffb',bytes(payload)))
 		return True, bufferData
 
 	return False, [0]
@@ -49,17 +61,18 @@ def getTimeStamp():
 	return datetime.datetime.now()
 
 def toString(buffer):
-	return ",".join(str(e) for in buffer)	
+	return ",".join(str(e) for e in buffer)	
 
 def saveToSD(buffer, timestamp, isLast):
 
 	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
 	msg = toString(buffer)
 
-	with open(timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
+
+	with open("coletas/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
 		file.write(msg + '\n')
 
-	with open("buffer.txt", "a") as file:
+	with open("toSend/"+"buffer.txt", "a") as file:
 
 		if isLast:
 			msg += '\n'
@@ -69,7 +82,7 @@ def saveToSD(buffer, timestamp, isLast):
 		file.write(msg)
 
 def publish_GET(SerialAT):
-	with open("buffer.txt", "a") as file:
+	with open("toSend/"+"buffer.txt", "r") as file:
 		for line in file:
 			SerialAT.sendAT("+CSQ")
 			SerialAT.waitResponse()
@@ -83,7 +96,7 @@ def publish_GET(SerialAT):
 			SerialAT.waitResponse()
 			SerialAT.sendAT("+CGATT?")
 			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=" + line +"\"")
+			SerialAT.sendAT("+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=oi\"")
 			SerialAT.waitResponse()
 			SerialAT.sendAT("+HTTPACTION=0")
 			SerialAT.waitResponse()
