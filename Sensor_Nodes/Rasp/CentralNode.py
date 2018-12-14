@@ -34,27 +34,43 @@ radio.begin()
 time.sleep(0.1)
 radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
 radio.setDataRate(RF24_250KBPS);                              # Set transmission rate
+radio.enableDynamicPayloads()
 network.begin(120, this_node)    # channel 120
 radio.printDetails()
 
 # Control Variables
 counter = 0
-MAX_COUNTER = 5
+audio_count = 0
 
-if not os.path.exists("coletas/"):
-	os.makedirs("colets/")
-if not os.path.exists("toSend/"):
-	os.makedirs("toSend/")
+MAX_COUNTER = 5
+MAX_AUDIO_COUNT = 380
+
+bufferAudio = []
+
+if not os.path.exists("data_collect/"):
+	os.makedirs("data_collect/")
+if not os.path.exists("data_to_send/"):
+	os.makedirs("data_to_send/")
+
+if not os.path.exists("audio_collect/"):
+	os.makedirs("audio_collect/")
+if not os.path.exists("audio_to_send"):
+	os.makedirs("audio_to_send")
 
 def receiveData():
 	network.update()
 
 	if(network.available()):
-		header, payload = network.read(25)
-		bufferData = list(unpack('ffffffb',bytes(payload)))
-		return True, bufferData
-
-	return False, [0]
+		header, payload = network.read(201)
+		print(header.type)
+		if header.type == 68:
+			bufferData = list(unpack('<b5fb',bytes(payload)))
+			return True, False, bufferData
+		elif header.type == 65:
+			bufferData = list(unpack('<b10H', bytes(payload)))
+			return False, True, bufferData
+		
+	return False, False, [0]
 
 def getTimeStamp():
 
@@ -63,16 +79,16 @@ def getTimeStamp():
 def toString(buffer):
 	return ",".join(str(e) for e in buffer)	
 
-def saveToSD(buffer, timestamp, isLast):
+def saveDataToSD(buffer, timestamp, isLast):
 
 	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
 	msg = toString(buffer)
 
 
-	with open("coletas/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
+	with open("data_collect/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
 		file.write(msg + '\n')
 
-	with open("toSend/"+"buffer.txt", "a") as file:
+	with open("data_to_send/"+"buffer_data.txt", "a") as file:
 
 		if isLast:
 			msg += '\n'
@@ -80,6 +96,17 @@ def saveToSD(buffer, timestamp, isLast):
 			msg += '/'
 
 		file.write(msg)
+def saveAudioToSD(buffer, timestamp):
+	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
+	msg = toString(buffer)
+
+	with open("audio_collect/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
+		file.write(msg+'\n')
+	
+	with open("audio_to_send/"+"buffer_audio.txt", "a") as file:
+		file.write(msg[0:100]+'\n')
+	
+		
 
 def publish_GET(SerialAT):
 	with open("toSend/"+"buffer.txt", "r") as file:
@@ -110,15 +137,13 @@ def publish_GET(SerialAT):
 while(1):
 	network.update()
 
-	dataReceived, bufferData = receiveData()
+	dataReceived, audioReceived, bufferData = receiveData()
 
 	if(dataReceived):
 		timestamp = getTimeStamp()
 
-		counter += 1
-		print(counter)
 		if counter == MAX_COUNTER - 1:
-			saveToSD(bufferData, timestamp, True)
+			saveDataToSD(bufferData, timestamp, True)
 
 			SerialAT.restart()
 			SerialAT.waitForNetwork()
@@ -127,7 +152,26 @@ while(1):
 			publish_GET(SerialAT)
 			counter = 0
 		else:
-			saveToSD(bufferData, timestamp, False)
+			saveDataToSD(bufferData, timestamp, False)
+			counter += 1
 
+	elif(audioReceived):
+		if(audio_count == 0):
+			timestamp = getTimeStamp()
+			bufferAudio.append(timestamp)
+			bufferAudio = bufferAudio + bufferData
+		else:
+			bufferAudio = bufferAudio + bufferData[1:]
+		
+		if(audio_count == MAX_AUDIO_COUNT - 1):
+			saveAudioToSD(bufferAudio[1:], bufferAudio[0])		
+			del bufferAudio[:]
+			audio_count = 0
+		else:
+			audio_count += 1
+
+			
+		
+		
 
 
