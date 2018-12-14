@@ -11,7 +11,7 @@ class PubSubClient:
 	MQTT_MAX_PACKET_SIZE = 700
 
 	#MQTT_KEEPALIVE: keepAlive interval in Seconds
-	MQTT_KEEPALIVE = 15
+	MQTT_KEEPALIVE = 10
 
 	#MQTT_SOCKET_TIMEOUT: socket timeout interval in Seconds
 	MQTT_SOCKET_TIMEOUT = 15
@@ -75,9 +75,9 @@ class PubSubClient:
 			if result == 1:
 				# Leave rooom in the buffer for header and variable length field
 				self.nextMsgId = 1
-				length = 5
+				length = 4
 				j = 0
-
+				
 				if self.MQTT_VERSION == self.MQTT_VERSION_3_1:
 					d = [0x00,0x06, 'M', 'Q','I','s','d', 'p', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 9
@@ -85,12 +85,9 @@ class PubSubClient:
 					d = [0x00, 0x04, 'M', 'Q', 'T', 'T', self.MQTT_VERSION]
 					self.MQTT_HEADER_VERSION_LENGTH = 7
 
-				length += 1
-				lengthFinal = length+self.MQTT_HEADER_VERSION_LENGTH
-				self.buffer[length:lengthFinal] = d[0:self.MQTT_HEADER_VERSION_LENGTH]
-				
-				length = lengthFinal-1
-				
+				for i in range(0,self.MQTT_HEADER_VERSION_LENGTH):
+					self.buffer[length] = d[i]
+					length += 1				
 				v = 0
 				if willTopic:
 					v = 0x06|(willQos<<3)|(willRetain<<5)
@@ -103,14 +100,15 @@ class PubSubClient:
 					if password != None:
 						v = v|(0x80>>1)
 
-				length+=1 
 				self.buffer[length] = v
+				length+=1 
 
-				length += 1
 				self.buffer[length] = ((self.MQTT_KEEPALIVE) >> 8)
-
 				length += 1
+
 				self.buffer[length] = ((self.MQTT_KEEPALIVE) & 0xFF)
+				length += 1
+
 				length = self.writeString(id, self.buffer, length)
 				if willTopic:
 					length = self.writeString(willTopic, self.buffer, length)
@@ -122,7 +120,6 @@ class PubSubClient:
 					if password != None:
 						length = self.writeString(password, self.buffer, length)
 
-				print("buffer:",self.buffer[0:])
 				self.write(self.MQTTCONNECT, self.buffer, length-5)
 								
 				self.lastInActivity = self.lastOutActivity = self.millis()
@@ -157,17 +154,15 @@ class PubSubClient:
 
 	def writeString(self, string, buf, pos):
 		i = len(string)
+		
+		pos += 2
+		for j in range(0, i):
+			buf[pos] = string[j]
+			pos += 1
 
-		pos += 1
-		buf[pos] = (i >> 8)
+		buf[pos-i-2] = (i >> 8)
+		buf[pos-i-1] = (i & 0xFF)
 
-		pos += 1
-		buf[pos] = (i & 0xFF)
-
-		pos += 1
-		posFinal = pos+i
-		buf[pos:posFinal] = string[0:i]
-		pos = posFinal-1
 		return pos
 
 	def write(self, header, buf, length):
@@ -185,8 +180,8 @@ class PubSubClient:
 			if(lenh > 0):
 				digit |= 0x80
 
-			pos += 1
 			lenBuf[pos] = digit
+			pos += 1
 			llen += 1
 		buf[4-llen] = header
 		for i in range(0, llen):
