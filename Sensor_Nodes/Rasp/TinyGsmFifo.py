@@ -3,7 +3,7 @@ class TinyGsmFifo:
 		self.w = 0
 		self.r = 0
 		self.N = N
-		self.b = [None]*N
+		self.b = [None]*self.N
 
 	def clear(self):
 		self.w = 0
@@ -16,26 +16,25 @@ class TinyGsmFifo:
 		s = self.r - self.w
 
 		if s <= 0:
-			s += n
+			s += self.N
 
 		return s - 1
 
-	def put(self, c):
-		i = self.w
-		j = self.i
+	def put(self, p, n = 1, t = False):
+		if n == 1:
+			i = self.w
+			j = self.i
 
-		i = self.inc(i)
+			i = self.inc(i)
+			if(i == self.r): # not writeable()
+				return False
 
-		if(i == self.r): # not writeable()
-			return False
+			self.b[j] = p
+			self.w = i
+			return True
 
-		self.b[j] = c
-		self.w = i
-		return True
-
-	def put(self, p, n, t = False):
 		c = n
-
+		contP = 0
 		while(c):
 			f = self.free()
 			while(f == 0): #Wait for space
@@ -54,43 +53,40 @@ class TinyGsmFifo:
 			# Check wrap
 			if ( f > m):
 				f = m
-			self.b[w:w+f] = p[0:f]
+			self.b[w:w+f] = p[contP:contP+f]
 			self.w = self.inc(w,f)
 			c -= f
-			p += f
+			contP += f
 
-		return n - c
+		return n - c, p
 
 	def readable(self):
 		return self.r != self.w
 
 	def size(self):
 		s = self.w - self.r
-		if s > 0:
+		if s < 0:
 			s += self.N
 
 		return s
+	def get(self, p, n = 1, t = False):
+		if n == 1:
+			r = self.r
+			if r == w: # not readable()
+				return False, None
+			p = self.b[r]
+			self.r = self.inc(r)
+			return True, p
 
-	def get(self, p):
-		r = self.r
-		if r == w: # not readable()
-			return False
-		p.append(self.b[r])
-
-		self.r = self.inc(r)
-
-		return True
-
-	def get(self, p, n, t = False):
 		c = n
-
+		contP = 0
 		while(c):
 			f = None
 
 			while(1): #Wait for data
 				f = self.size()
 				if(f): break            #Free space
-				if(not t): return n - c # Bi soace abd bit blocking
+				if(not t): return n - c # No space and not blocking
 				# nothing / just wait
 
 			# Check available data
@@ -101,12 +97,12 @@ class TinyGsmFifo:
 
 			#Check wrap
 			if(f > m): f = m
-			p[0:f] = self.b[r:r+f]
+			p[contP:contP+f] = self.b[r:r+f]
 			self.r = self.inc(r, f)
 			c -= f
-			p += f
+			contP += f
 
-		return n - c
+		return n - c, p
 
 	def inc(self, i, n = 1):
 		return (i + n) % self.N

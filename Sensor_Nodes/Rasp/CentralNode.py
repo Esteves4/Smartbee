@@ -33,7 +33,7 @@ this_node = octlit("00")
 radio.begin()
 time.sleep(0.1)
 radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
-radio.setDataRate(RF24_250KBPS);                              # Set transmission rate
+radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
 radio.enableDynamicPayloads()
 network.begin(120, this_node)    # channel 120
 radio.printDetails()
@@ -43,9 +43,10 @@ counter = 0
 audio_count = 0
 
 MAX_COUNTER = 5
-MAX_AUDIO_COUNT = 380
+MAX_AUDIO_COUNT = 760
 
 bufferAudio = []
+
 
 if not os.path.exists("data_collect/"):
 	os.makedirs("data_collect/")
@@ -67,7 +68,7 @@ def receiveData():
 			bufferData = list(unpack('<b5fb',bytes(payload)))
 			return True, False, bufferData
 		elif header.type == 65:
-			bufferData = list(unpack('<b10H', bytes(payload)))
+			bufferData = list(unpack('<b50H', bytes(payload)))
 			return False, True, bufferData
 		
 	return False, False, [0]
@@ -98,41 +99,49 @@ def saveDataToSD(buffer, timestamp, isLast):
 		file.write(msg)
 def saveAudioToSD(buffer, timestamp):
 	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
-	msg = toString(buffer)
+	msg = toString(buffer[0:100])
 
 	with open("audio_collect/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
 		file.write(msg+'\n')
 	
 	with open("audio_to_send/"+"buffer_audio.txt", "a") as file:
-		file.write(msg[0:100]+'\n')
+		file.write(msg+'\n')
 	
 		
 
 def publish_GET(SerialAT):
-	with open("toSend/"+"buffer.txt", "r") as file:
-		for line in file:
-			SerialAT.sendAT("+CSQ")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPINIT")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPPARA=\"CID\",1")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+SAPBR=2,1")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+SAPBR=4,1")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+CGATT?")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=oi\"")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPACTION=0")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPREAD")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+HTTPTERM")
-			SerialAT.waitResponse()
-			SerialAT.sendAT("+SAPBR=0,1")
-			SerialAT.waitResponse()	
+
+	with open("data_to_send/"+"tmp.txt", "a") as file2:
+		with open("data_to_send/"+"buffer.txt", "r") as file:
+			for line in file:
+				SerialAT.sendAT("+CSQ")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+HTTPINIT")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+HTTPPARA=\"CID\",1")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+SAPBR=2,1")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+SAPBR=4,1")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+CGATT?")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=oi\"")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+HTTPACTION=0")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+HTTPREAD")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+HTTPTERM")
+				SerialAT.waitResponse()
+				SerialAT.sendAT("+SAPBR=0,1")
+				SerialAT.waitResponse()
+				#Verificar se deu certo o envio, se não, imprimit linha no arquivo temporario
+				if(True):
+					file2.write(line)	
+	# Remove arquivo anterior e renomeia o arquivo tmp
+	os.remove("data_to_send/buffer.txt")
+	os.rename("data_to_send/tmp.txt","data_to_send/buffer.txt")
 
 while(1):
 	network.update()
