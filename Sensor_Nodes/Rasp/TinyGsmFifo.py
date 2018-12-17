@@ -23,7 +23,7 @@ class TinyGsmFifo:
 	def put(self, p, n = 1, t = False):
 		if n == 1:
 			i = self.w
-			j = self.i
+			j = i
 
 			i = self.inc(i)
 			if(i == self.r): # not writeable()
@@ -72,7 +72,7 @@ class TinyGsmFifo:
 	def get(self, p, n = 1, t = False):
 		if n == 1:
 			r = self.r
-			if r == w: # not readable()
+			if r == self.w: # not readable()
 				return False, None
 			p = self.b[r]
 			self.r = self.inc(r)
@@ -86,7 +86,7 @@ class TinyGsmFifo:
 			while(1): #Wait for data
 				f = self.size()
 				if(f): break            #Free space
-				if(not t): return n - c # No space and not blocking
+				if(not t): return n - c, None # No space and not blocking
 				# nothing / just wait
 
 			# Check available data

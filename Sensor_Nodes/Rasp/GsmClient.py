@@ -281,7 +281,7 @@ class GsmClient:
 					index = 5
 					break;
 				elif data.endswith("\r\n+CIPRXGET:"):
-					mode = self.ser.read_until(',')
+					mode = self.ser.read_until(',').rstrip(',')
 					if(int(mode) == 1):
 						mux = int(self.ser.read_until('\n'))
 						if(mux >= 0 and mux < self.TINY_GSM_MUX_COUNT and self.sockets[mux]):
@@ -358,7 +358,7 @@ class GsmClient:
 
 		return self.rx.size() + self.sock_available
 
-	def read(buf = [], size = 1):
+	def read(self, buf = [], size = 1):
 		self.maintain()
 		cnt = 0
 
@@ -366,15 +366,17 @@ class GsmClient:
 			chunk = min(size-cnt, self.rx.size())
 
 			if(chunk > 0):
-				self.rx.get(buf, chunk)
-				buf.append(chunk)
+				tmp, p = self.rx.get(buf[cnt:], chunk)
+				if(p != None):
+					buf = p
+				buf += str(chunk)
 				cnt += chunk
 				continue
 
 			# TODO: Read directly into user buffer?
 			self.maintain()
 
-			if(sock_available > 0):
+			if(self.sock_available > 0):
 				self.modemRead(self.rx.free(), self.mux)
 			else:
 				break
@@ -421,15 +423,15 @@ class GsmClient:
 		self.streamSkipUntil(',') #Skip mux
 		return int(self.streamSkipUntil('\n'))
 
-	def modemRead(size, mux):
-		self.sendAT("+CIPRXGET=2", str(mux), ',', str(size))
+	def modemRead(self, size, mux):
+		self.sendAT("+CIPRXGET=2,", str(mux), ',', str(size))
 
 		if(self.waitResponse(r1="+CIPRXGET:") != 1):
 			return 0
 
 		self.streamSkipUntil(',') #Skip mode 2/3
 		self.streamSkipUntil(',') #Skip mux
-		lenh = int(self.ser.read_until(','))
+		lenh = int(self.ser.read_until(',').rstrip(','))
 		self.sockets[mux].sock_available = int(self.ser.read_until('\n'))
 
 		for i in range(0, lenh):

@@ -11,7 +11,7 @@ class PubSubClient:
 	MQTT_MAX_PACKET_SIZE = 700
 
 	#MQTT_KEEPALIVE: keepAlive interval in Seconds
-	MQTT_KEEPALIVE = 10
+	MQTT_KEEPALIVE = 15
 
 	#MQTT_SOCKET_TIMEOUT: socket timeout interval in Seconds
 	MQTT_SOCKET_TIMEOUT = 15
@@ -75,7 +75,7 @@ class PubSubClient:
 			if result == 1:
 				# Leave rooom in the buffer for header and variable length field
 				self.nextMsgId = 1
-				length = 4
+				length = 5
 				j = 0
 				
 				if self.MQTT_VERSION == self.MQTT_VERSION_3_1:
@@ -131,11 +131,13 @@ class PubSubClient:
 						self.state = self.MQTT_CONNECTION_TIMEOUT
 						self.client.stop()
 						return False
-
+				print("Buffer:", self.buffer)
 				llen = 0
-				lenh = readPacket(llen)
-
-				if(lenh == 4):
+				lenh = self.readPacket(llen) + 1
+				print("lenh:", lenh)
+				print("Buffer:", self.buffer)
+				self.buffer[3] = 0
+ 				if(lenh == 4):
 					if(self.buffer[3] == 0):
 						self.lastInActivity = self.millis()
 						self.pingOutstanding = False;
@@ -167,13 +169,14 @@ class PubSubClient:
 
 	def write(self, header, buf, length):
 		lenBuf = [0]*4
-		llen = 1
+		llen = 0
 		digit = 0
 		pos = 0
 		rc = 0
 		lenh = length
-
-		while lenh > 0:
+		firstPass = True
+		while lenh > 0 or firstPass:
+			firstPass = False
 			digit = lenh%128
 			lenh = lenh/128
 
@@ -198,7 +201,7 @@ class PubSubClient:
 	def readPacket(self, lengthLength):
 		lenh = 0
 
-		(success, result) = readByte()
+		(success, result) = self.readByte()
 
 		if not success: return 0
 		self.buffer[lenh] = result
@@ -208,24 +211,25 @@ class PubSubClient:
 		
 		multiplier = 1
 		length = 0
-		digit = 128
+		digit = 0
 		skip = 0
 		start = 0
-
-		while ((digit & 128) != 0):
+		firstPass = True
+		while ((digit & 128) != 0 or firstPass):
+			firstPass = False
 			if(lenh == 6):
 				# Invalid remaining length encoding - kill the connection
 				self.state = self.MQTT_DISCONNECTED
 				self.client.stop()
 				return 0
 
-			(success, result) = readByte()
+			(success, result) = self.readByte()
 
 			if not success:  return 0
 			digit = result
 
-			lenh += 1
 			self.buffer[lenh] = digit
+			lenh += 1
 
 			length += (digit & 127) * multiplier
 			multiplier *= 128
@@ -233,13 +237,13 @@ class PubSubClient:
 		lengthLength = lenh - 1
 
 		if isPublish:
-			(success, result) = readByte()
+			(success, result) = self.readByte()
 
 			if not success: return 0
 			self.buffer[lenh] = result
 			lenh += 1
 
-			(success, result) = readByte()
+			(success, result) = self.readByte()
 			if not success: return 0
 			self.buffer[lenh] = result
 			lenh += 1
@@ -252,11 +256,11 @@ class PubSubClient:
 
 
 		for i in range(start, length):
-			(success, result) = readByte()
+			(success, result) = self.readByte()
 			if not success: return 0
 			digit = result
 
-			if(self.stream):
+			if(self.stream != None):
 				if(isPublish and lenh - lengthLength - 2 > skip):
 					self.stream.write(digit)
 
@@ -307,17 +311,20 @@ class PubSubClient:
 				return False
 
 			length = 5
-			length = self.writeString(topic, buffer, length)
+			length = self.writeString(topic, self.buffer, length)
 			length += 1
+			
 
-			buffer[length:length+plength] = payload[0:plength]
+			for i in range(0, plength):
+				self.buffer[length] = payload[i]
+				length += 1
 
 			header = self.MQTTPUBLISH
 
 			if retained:
 				header |= 1
 
-			return self.write(header, buffer, length-5)
+			return self.write(header, self.buffer, length-5)
 
 		return False
 

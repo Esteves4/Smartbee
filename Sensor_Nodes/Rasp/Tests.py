@@ -6,7 +6,7 @@ mqtt = MQTT.PubSubClient(SerialAT)
 
 print("Restart:",SerialAT.restart())
 print("Wait Network:",SerialAT.waitForNetwork())
-print("GPRS Connect:",SerialAT.gprsConnect("claro.com.br","claro","claro"))
+print("GPRS Connect:",SerialAT.gprsConnect("timbrasil.br","tim","tim"))
 print("Starting MQTT")
 print("Set Server:",mqtt.setServer(domain="200.129.43.208",port="1883"))
 print("Connect:",mqtt.connect(id="CentralNode", user="teste@teste", password="123456"))
