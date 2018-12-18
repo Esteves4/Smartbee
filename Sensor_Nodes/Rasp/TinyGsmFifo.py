@@ -29,7 +29,7 @@ class TinyGsmFifo:
 			if(i == self.r): # not writeable()
 				return False
 
-			self.b[j] = p
+			self.b[j] = ord(p)
 			self.w = i
 			return True
 
@@ -53,10 +53,13 @@ class TinyGsmFifo:
 			# Check wrap
 			if ( f > m):
 				f = m
-			self.b[w:w+f] = p[contP:contP+f]
+			#self.b[w:w+f] = p[contP:contP+f]
+			for i in range(w,f):
+				self.b[i] = ord(p[contP])
+				contP += 1
 			self.w = self.inc(w,f)
 			c -= f
-			contP += f
+			#contP += f
 
 		return n - c, p
 

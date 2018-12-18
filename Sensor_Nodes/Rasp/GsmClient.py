@@ -368,8 +368,11 @@ class GsmClient:
 			if(chunk > 0):
 				tmp, p = self.rx.get(buf[cnt:], chunk)
 				if(p != None):
-					buf = p
-				buf += str(chunk)
+					if size == 1:
+						return cnt, p
+					else:
+						buf[cnt:] = p[0:]
+				buf.append(chunk)
 				cnt += chunk
 				continue
 
@@ -381,7 +384,7 @@ class GsmClient:
 			else:
 				break
 
-		return cnt
+		return cnt, buf
 
 	def flush(self):
 		self.ser.flush()

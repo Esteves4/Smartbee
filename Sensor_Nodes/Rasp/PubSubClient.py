@@ -131,12 +131,11 @@ class PubSubClient:
 						self.state = self.MQTT_CONNECTION_TIMEOUT
 						self.client.stop()
 						return False
-				print("Buffer:", self.buffer)
+				
 				llen = 0
-				lenh = self.readPacket(llen) + 1
-				print("lenh:", lenh)
-				print("Buffer:", self.buffer)
-				self.buffer[3] = 0
+				lenh = self.readPacket(llen)
+				
+				
  				if(lenh == 4):
 					if(self.buffer[3] == 0):
 						self.lastInActivity = self.millis()
@@ -145,7 +144,7 @@ class PubSubClient:
 						self.state = self.MQTT_CONNECTED
 						return True
 					else:
-						self.state = buffer[3]
+						self.state = self.buffer[3]
 				self.client.stop()
 			else:
 				self.state = self.MQTT_CONNECT_FAILED
@@ -208,7 +207,6 @@ class PubSubClient:
 		lenh += 1
 
 		isPublish = (self.buffer[0]&0xF0) == self.MQTTPUBLISH
-		
 		multiplier = 1
 		length = 0
 		digit = 0
@@ -271,6 +269,7 @@ class PubSubClient:
 
 		if (not self.stream and lenh > self.MQTT_MAX_PACKET_SIZE):
 			lenh = 0 # THis will cause the packet to be ignored
+		
 
 		return lenh
 
@@ -300,7 +299,8 @@ class PubSubClient:
 				return (False, None)
 
 
-		result = self.client.read()
+		cnt, result = self.client.read()
+		
 		return (True, result)
 
 	def publish(self,topic, payload, retained = False):
