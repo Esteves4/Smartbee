@@ -87,7 +87,6 @@ def receiveData():
 	return False, False, [0]
 
 def getTimeStamp():
-
 	return datetime.datetime.now()
 
 def toString(buffer):
@@ -110,6 +109,7 @@ def saveDataToSD(buffer, timestamp, isLast):
 			msg += '/'
 
 		file.write(msg)
+
 def saveAudioToSD(buffer, timestamp):
 	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
 	
@@ -144,7 +144,7 @@ def publish_MQTT(mqttClient, topic, file_source, file_temp):
 			count = 1
 			for line in file:
 				if count > 5:
-					file2.write(line+\'n')
+					file2.write(line+'\n')
 				else:
 					if not mqttClient.publish(topic,line):
 						file2.write(line+'\n')		
@@ -170,20 +170,10 @@ while(1):
 
 			dataReady = True
 	
-			if not connection_gsm(SerialAT,apn, user, password):
-				#Fazer algo em um log
-			elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker)
-				# Fazer algo em um log
-			else:
-				publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
-				publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
-			
-			counter = 0
 		else:
 			saveDataToSD(bufferData, timestamp, False)
 			counter += 1
-
-		updateCounter(counter)
+			updateCounter(counter)
 
 	elif(audioReceived):
 		if(audio_count == 0):
@@ -198,14 +188,24 @@ while(1):
 			del bufferAudio[:]
 			
 			audioReady = True
-			audio_count = 0
-			
 		else:
 			audio_count += 1
 	
 	if audioReady and dataReady:
-		
+		if not connection_gsm(SerialAT,apn, user, password):
+				#Fazer algo em um log
+			elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker)
+				# Fazer algo em um log
+			else:
+				publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
+				publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
 			
+		
+		counter = 0
+		audio_count = 0
+		audioReady = False
+		dataReady = False
+		updateCounter(counter)
 		
 		
 
