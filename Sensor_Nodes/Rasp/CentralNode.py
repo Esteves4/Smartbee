@@ -76,7 +76,7 @@ def receiveData():
 
 	if(network.available()):
 		header, payload = network.read(201)
-		print(header.type)
+		
 		if header.type == 68:
 			bufferData = list(unpack('<b5fb',bytes(payload)))
 			return True, False, bufferData
@@ -87,10 +87,18 @@ def receiveData():
 	return False, False, [0]
 
 def getTimeStamp():
-	return datetime.datetime.now()
+	timestamp = datetime.datetime.now()
+	print("timestamp", timestamp)
+	return timestamp
 
 def toString(buffer):
-	return ",".join(str(e) for e in buffer)	
+	for i in range(0, len(buffer)):
+		if type(buffer[i]) == float:
+			buffer[i] = "%3.2f" %buffer[i]
+		else:
+			buffer[i] = str(buffer[i])
+		
+	return ",".join(buffer)	
 
 def saveDataToSD(buffer, timestamp, isLast):
 
@@ -129,11 +137,11 @@ def connection_gsm(gsmClient, apn, user, password):
 		return False
 	if not gsmClient.waitForNetwork():
 		return False
-	return gsmClient.gprsConnect(apn,user,password)>
+	return gsmClient.gprsConnect(apn,user,password)
 	
 def connection_mqtt(mqttClient, user, password, broker):
 	
-	mqttClient.serServer(broker, 1883)
+	mqttClient.setServer(broker, 1883)
 
 	return mqttClient.connect("CentralNode", user, password) 
 	
@@ -179,26 +187,32 @@ while(1):
 		if(audio_count == 0):
 			timestamp = getTimeStamp()
 			bufferAudio.append(timestamp)
-			bufferAudio = bufferAudio + bufferData
+			bufferAudio.extend(bufferData)
 		else:
-			bufferAudio = bufferAudio + bufferData[1:]
+			bufferAudio.extend(bufferData[1:])
 		
 		if(audio_count == MAX_AUDIO_COUNT - 1):
 			saveAudioToSD(bufferAudio[1:], bufferAudio[0])		
-			del bufferAudio[:]
+			del bufferAudio[:]	
 			
-			audioReady = True
+			if(dataReady):
+				audioReady = True
+
+			audio_count = 0	
 		else:
+			#print("audio_count", audio_count)	
 			audio_count += 1
 	
 	if audioReady and dataReady:
 		if not connection_gsm(SerialAT,apn, user, password):
-				#Fazer algo em um log
-			elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker)
-				# Fazer algo em um log
-			else:
-				publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
-				publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+			#Fazer algo em um log
+			pass
+		elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
+			# Fazer algo em um log
+			pass
+		else:
+			publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
 			
 		
 		counter = 0
