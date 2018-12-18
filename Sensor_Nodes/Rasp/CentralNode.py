@@ -10,6 +10,7 @@ from RF24Network import *
 
 # SIM800L Configuration
 SerialAT = gsm.GsmClient('/dev/ttyAMA0', 57600)
+mqtt = MQTT.PubSubClient(SerialAT)
 
 apn = "claro.com.br"
 user = "claro"
@@ -22,6 +23,8 @@ broker = "200.129.43.208"
 user_MQTT = "teste@teste"
 pass_MQTT = "123456"
 
+topic_audio = "sensors/coleta_audio"
+topic_data = "sensors/coleta_data"
 
 # NRF24L01 Configuration
 octlit = lambda n:int(n,8)
@@ -47,6 +50,8 @@ MAX_AUDIO_COUNT = 760
 
 bufferAudio = []
 
+dataReady = False
+audioReady = False
 
 if not os.path.exists("data_collect/"):
 	os.makedirs("data_collect/")
@@ -57,6 +62,14 @@ if not os.path.exists("audio_collect/"):
 	os.makedirs("audio_collect/")
 if not os.path.exists("audio_to_send"):
 	os.makedirs("audio_to_send")
+
+if not os.path.exists("counter.txt"):
+	with open("counter.txt","w") as file:
+		file.write(str(0) + '\n')
+
+with open("counter.txt","r") as file:
+	counter = int(file.readline())
+
 
 def receiveData():
 	network.update()
@@ -99,49 +112,50 @@ def saveDataToSD(buffer, timestamp, isLast):
 		file.write(msg)
 def saveAudioToSD(buffer, timestamp):
 	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
-	msg = toString(buffer[0:100])
+	
+	msg = toString(buffer)
 
 	with open("audio_collect/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
 		file.write(msg+'\n')
-	
-	with open("audio_to_send/"+"buffer_audio.txt", "a") as file:
-		file.write(msg+'\n')
-	
+
+	#Selecionando 100 amostras do audio
+	msg = toString(buffer[0:100])
 		
+	with open("audio_to_send/buffer_audio.txt", "a") as file:
+		file.write(msg+'\n')
 
-def publish_GET(SerialAT):
+def connection_gsm(gsmClient, apn, user, password):
+	if not gsmClient.restart():
+		return False
+	if not gsmClient.waitForNetwork():
+		return False
+	return gsmClient.gprsConnect(apn,user,password)>
+	
+def connection_mqtt(mqttClient, user, password, broker):
+	
+	mqttClient.serServer(broker, 1883)
 
-	with open("data_to_send/"+"tmp.txt", "a") as file2:
-		with open("data_to_send/"+"buffer.txt", "r") as file:
+	return mqttClient.connect("CentralNode", user, password) 
+	
+def publish_MQTT(mqttClient, topic, file_source, file_temp):
+	
+	with open(file_temp, "a") as file2:
+		with open(file_source, "r") as file:
+			count = 1
 			for line in file:
-				SerialAT.sendAT("+CSQ")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+HTTPINIT")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+HTTPPARA=\"CID\",1")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+SAPBR=2,1")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+SAPBR=4,1")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+CGATT?")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=oi\"")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+HTTPACTION=0")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+HTTPREAD")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+HTTPTERM")
-				SerialAT.waitResponse()
-				SerialAT.sendAT("+SAPBR=0,1")
-				SerialAT.waitResponse()
-				#Verificar se deu certo o envio, se não, imprimit linha no arquivo temporario
-				if(True):
-					file2.write(line)	
-	# Remove arquivo anterior e renomeia o arquivo tmp
-	os.remove("data_to_send/buffer.txt")
-	os.rename("data_to_send/tmp.txt","data_to_send/buffer.txt")
+				if count > 5:
+					file2.write(line+\'n')
+				else:
+					if not mqttClient.publish(topic,line):
+						file2.write(line+'\n')		
+				count += 1
+				time.sleep(1)
+	os.remove(file_source)
+	os.rename(file_temp,file_source)
+
+def updateCounter(newCounter):
+	with open("counter.txt","w") as file:
+		file.write(str(newCounter) + '\n')
 
 while(1):
 	network.update()
@@ -154,15 +168,22 @@ while(1):
 		if counter == MAX_COUNTER - 1:
 			saveDataToSD(bufferData, timestamp, True)
 
-			SerialAT.restart()
-			SerialAT.waitForNetwork()
-			SerialAT.gprsConnect("claro.com.br","claro","claro")
-
-			publish_GET(SerialAT)
+			dataReady = True
+	
+			if not connection_gsm(SerialAT,apn, user, password):
+				#Fazer algo em um log
+			elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker)
+				# Fazer algo em um log
+			else:
+				publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
+				publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+			
 			counter = 0
 		else:
 			saveDataToSD(bufferData, timestamp, False)
 			counter += 1
+
+		updateCounter(counter)
 
 	elif(audioReceived):
 		if(audio_count == 0):
@@ -175,10 +196,15 @@ while(1):
 		if(audio_count == MAX_AUDIO_COUNT - 1):
 			saveAudioToSD(bufferAudio[1:], bufferAudio[0])		
 			del bufferAudio[:]
+			
+			audioReady = True
 			audio_count = 0
+			
 		else:
 			audio_count += 1
-
+	
+	if audioReady and dataReady:
+		
 			
 		
 		
