@@ -232,7 +232,7 @@ void loop() {
     Serial.end();
     
     delay(200);
-    //bufferADC = 0;
+    bufferADC = 0;
 
     start = millis();
     uint8_t i = 0;
