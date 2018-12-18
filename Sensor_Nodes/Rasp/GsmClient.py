@@ -71,7 +71,15 @@ class GsmClient:
 				return self.SIM_ERROR
 
 		return self.SIM_ERROR
-	
+
+	def getGsmTime(self):
+		self.sendAT("+CIPGSMLOC=2,1")
+		if(self.waitResponse(timeout=10000, r1="\r\n+CIPGSMLOC:") != 1):
+			return ""
+		res = self.ser.read_until('\n')
+		self.waitResponse()
+		return res.strip()
+
 	def testAT(self,timeout = 10000):
 		start = self.millis()
 		while self.millis() - start < timeout:

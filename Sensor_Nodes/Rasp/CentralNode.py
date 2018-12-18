@@ -85,6 +85,21 @@ def receiveData():
 			return False, True, bufferData
 		
 	return False, False, [0]
+def setRaspTimestamp(gsm, apn, user, password):
+	if not connection_gsm(gsm,apn, user, password):
+		return False
+	
+	time = gsm.getGsmTime()
+	time = time.split(',')
+	
+	if int(time[0]) != 0:
+		return False
+	os.system("sudo date +%Y/%m/%d -s "+time[1])
+	os.system("sudo date +%T -s " + time[2] + " -u")
+	os.system("sudo date")
+	print(time)
+	
+	return True
 
 def getTimeStamp():
 	timestamp = datetime.datetime.now()
@@ -164,6 +179,8 @@ def publish_MQTT(mqttClient, topic, file_source, file_temp):
 def updateCounter(newCounter):
 	with open("counter.txt","w") as file:
 		file.write(str(newCounter) + '\n')
+
+setRaspTimestamp(SerialAT, apn, user, password)
 
 while(1):
 	network.update()
