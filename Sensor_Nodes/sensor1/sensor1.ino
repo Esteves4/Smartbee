@@ -52,7 +52,7 @@ uint16_t count = 0;
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
-	int colmeia;
+	char colmeia;
 	float temperatura;
 	float umidade;
 	float tensao_c;
@@ -61,7 +61,7 @@ struct payload_t {
 	char erro_vec;
 };
 
-#define audio_size 100
+#define audio_size 50
 
 struct payload_a {
   char colmeia;
@@ -168,7 +168,7 @@ void setup(void) {
 	radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
 	radio.setPayloadSize(32);                                     // Set payload Size
 	radio.setPALevel(RF24_PA_HIGH);                                // Set Power Amplifier level
-	radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
+	radio.setDataRate(RF24_1MBPS);                              // Set transmission rate
 	network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
 
 	/* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
@@ -232,7 +232,7 @@ void loop() {
     Serial.end();
     
     delay(200);
-    bufferADC = 0;
+    //bufferADC = 0;
 
     start = millis();
     uint8_t i = 0;
@@ -240,14 +240,14 @@ void loop() {
       
 			//memory.get(j, bufferADC);
 
-//      payload_audio.audio[i] = ++bufferADC;
-//      ++i;
-//      if(i == audio_size){
-//        if( !enviarAudio() ){
-//          //break;
-//        }
-//        i = 0;
-//      }
+      payload_audio.audio[i] = bufferADC++;
+      ++i;
+      if(i == audio_size){
+        if( !enviarAudio() ){
+          //break;
+        }
+        i = 0;
+      }
 			
 		}
     end = millis();
