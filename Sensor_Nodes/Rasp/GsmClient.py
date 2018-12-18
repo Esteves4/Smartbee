@@ -424,7 +424,7 @@ class GsmClient:
 			return 0
 
 		self.streamSkipUntil(',') #Skip mux
-		return int(self.streamSkipUntil('\n'))
+		return int(self.ser.read_until('\n'))
 
 	def modemRead(self, size, mux):
 		self.sendAT("+CIPRXGET=2,", str(mux), ',', str(size))

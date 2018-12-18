@@ -189,8 +189,7 @@ class PubSubClient:
 		for i in range(0, llen):
 			buf[5-llen+i] = lenBuf[i]
 		
-		print("buffer:",buf[4-llen:length+5])
-		c = self.client.write(buf[4-llen:], length+1+llen)
+		rc = self.client.write(buf[4-llen:], length+1+llen)
 		self.lastOutActivity = self.millis()
 		return (rc == 1+llen+length)
 
@@ -312,8 +311,7 @@ class PubSubClient:
 
 			length = 5
 			length = self.writeString(topic, self.buffer, length)
-			length += 1
-			
+						
 
 			for i in range(0, plength):
 				self.buffer[length] = payload[i]
@@ -323,9 +321,9 @@ class PubSubClient:
 
 			if retained:
 				header |= 1
-
+			
 			return self.write(header, self.buffer, length-5)
-
+			
 		return False
 
 	def subscribe(self, topic, qos =0):
