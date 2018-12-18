@@ -88,7 +88,7 @@ def receiveData():
 
 def getTimeStamp():
 	timestamp = datetime.datetime.now()
-	print("timestamp", timestamp)
+	
 	return timestamp
 
 def toString(buffer):
@@ -127,7 +127,7 @@ def saveAudioToSD(buffer, timestamp):
 		file.write(msg+'\n')
 
 	#Selecionando 100 amostras do audio
-	msg = toString(buffer[0:100])
+	msg = toString(buffer[0:101])
 		
 	with open("audio_to_send/buffer_audio.txt", "a") as file:
 		file.write(msg+'\n')
@@ -152,10 +152,10 @@ def publish_MQTT(mqttClient, topic, file_source, file_temp):
 			count = 1
 			for line in file:
 				if count > 5:
-					file2.write(line+'\n')
-				else:
-					if not mqttClient.publish(topic,line):
-						file2.write(line+'\n')		
+					file2.write(line)
+				else:	
+					if not mqttClient.publish(topic,line.rstrip('\n')):
+						file2.write(line)		
 				count += 1
 				time.sleep(1)
 	os.remove(file_source)
@@ -200,7 +200,6 @@ while(1):
 
 			audio_count = 0	
 		else:
-			#print("audio_count", audio_count)	
 			audio_count += 1
 	
 	if audioReady and dataReady:

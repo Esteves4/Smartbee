@@ -341,7 +341,7 @@ class GsmClient:
 		if buf == None: return 0
 
 		self.maintain()
-		print("header:",buf[0:size])
+		
 		return self.modemSend(buf, size, self.mux)
 
 	def available(self):
