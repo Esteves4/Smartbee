@@ -147,17 +147,6 @@ def saveAudioToSD(buffer, timestamp):
 	with open("audio_to_send/buffer_audio.txt", "a") as file:
 		file.write(msg+'\n')
 
-
-def zipFiles(path, timestamp):
-	# Verifica se existe arquivo txt com data anterior, se existir, comprime e exclui o arquivo txt
-	timestamp = timestamp - datetime.timedelta(days=1) 
-
-	filename = timestamp.strftime("%d_%m_%y")
-
-	if os.path.exists(path + filename + ".txt"):
-		os.system("sudo tar -C " + path + " -zcvf " + path + filename + ".tar.gz ./" + filename + ".txt --remove-files")
-	
-
 def connection_gsm(gsmClient, apn, user, password):
 	if not gsmClient.restart():
 		return False
@@ -193,9 +182,6 @@ def updateCounter(newCounter):
 
 #Descomentar linha abaixo para atualizar data e hora pelo SIM800L
 #setRaspTimestamp(SerialAT, apn, user, password)
-
-#timestamp = getTimeStamp()
-#zipFiles("data_collect/", timestamp)
 
 while(1):
 	network.update()
@@ -244,12 +230,7 @@ while(1):
 		else:
 			publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
 			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
-			
-			timestamp = getTimeStamp()
-
-			zipFiles("data_collect/", timestamp)
-			zipFiles("audio_collect/", timestamp)
-			
+				
 		
 		counter = 0
 		audio_count = 0
