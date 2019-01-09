@@ -1,12 +1,34 @@
+# coding=utf-8
 import GsmClient as gsm 
 import PubSubClient as MQTT 
 import time 
 import datetime 
 import os
+import logging
+import logging.handlers
 from struct import * 
 from RF24 import * 
 from RF24Network import *
 
+
+LOG_FILENAME = './log/CentralNode.log'
+
+# Create logger
+logger = logging.getLogger("CentralNode-logger")
+logger.setLevel(logging.DEBUG)
+
+# Create console handler and set level to debug
+handler = logging.handlers.RotatingFileHandler(LOG_FILENAME, maxBytes=1024000, backupCount = 5)
+handler.setLevel(logging.DEBUG)
+
+#Create formatter
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+
+# Add formatter to handler
+handler.setFormatter(formatter)
+
+# Add ch to logger
+logger.addHandler(handler)
 
 # SIM800L Configuration
 SerialAT = gsm.GsmClient('/dev/ttyAMA0', 57600)
@@ -222,11 +244,9 @@ while(1):
 	
 	if audioReady and dataReady:
 		if not connection_gsm(SerialAT,apn, user, password):
-			#Fazer algo em um log
-			pass
+			logger.error("Erro na conexão com rede gsm")			
 		elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
-			# Fazer algo em um log
-			pass
+			logger.error("Erro na conexão com servidor MQTT")			
 		else:
 			publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
 			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
