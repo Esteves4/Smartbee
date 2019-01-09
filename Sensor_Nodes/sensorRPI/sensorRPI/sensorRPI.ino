@@ -52,21 +52,24 @@ uint16_t count = 0;
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
-	char colmeia;
+	int colmeia;
 	float temperatura;
 	float umidade;
 	float tensao_c;
 	float tensao_r;
 	float peso;
 	char erro_vec;
+	char timestamp[20];
 };
 
-#define audio_size 50
+
+#define audio_size 100
 
 struct payload_a {
   char colmeia;
   uint16_t audio[audio_size];
 };
+
 
 #define E_DHT   0
 #define E_TEN_C 1
@@ -163,12 +166,12 @@ void setup(void) {
   memory.clearMemory();
 
 	/* nRF24L01 configuration*/ 
-	//SPI.begin();                                                // Start SPI protocol
+	//SPI.begin();                                                  // Start SPI protocol
 	radio.begin();                                                // Start nRF24L01
 	radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-	radio.setPayloadSize(32);                                     // Set payload Size
-	radio.setPALevel(RF24_PA_HIGH);                                // Set Power Amplifier level
-	radio.setDataRate(RF24_1MBPS);                              // Set transmission rate
+	radio.setPayloadSize(32);                        // Set payload Size
+	radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
+	radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
 	network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
 
 	/* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
@@ -203,88 +206,12 @@ void loop() {
 		radio.flush_tx();
 	}
 
-	if(strAddr >= 76000){
-		/* Clears ADC previous configuration so we can use analogRead */
-		ADCSRA = 0;             
-		ADCSRB = 0;
+  RF24NetworkHeader header(id_destino, 'D');                   // Sets the header of the payload   
 
-		strAddr = 0;
+  radio.flush_tx();
+  network.write(header, "OI-AAAAA", 8);
 
-		/* Turn on the sensors */
-		digitalWrite(PORTADHT, HIGH);
-		delay(200);
-
-		/* Performs the readings */
-		payload.erro_vec = '\0';
-		
-		lerDHT();
-		lerTensao();
-		lerPeso();
-
-		/* Turn off the sensors */
-		digitalWrite(PORTADHT, LOW);
-
-    enviarDados();                                              // Sends the data to the gateway
-
-    Serial.begin(57600);
-    Serial.println("DONE");
-    Serial.flush();
-    Serial.end();
-    
-    delay(200);
-    bufferADC = 0;
-
-    start = millis();
-    uint8_t i = 0;
-		for(uint32_t j = 0; j < 76000; j = j + 2){
-      
-			//memory.get(j, bufferADC);
-
-      payload_audio.audio[i] = bufferADC++;
-      ++i;
-      if(i == audio_size){
-        if( !enviarAudio() ){
-          //break;
-        }
-        i = 0;
-      }
-			
-		}
-    end = millis();
-    Serial.begin(57600);
-    Serial.print(end - start);
-    Serial.println(" milisegundos");
-    Serial.flush();
-    Serial.end();
-    sleep = true;
-		
-	}else if(interrupted){
-		bufferADC = (bufferADC_H << 8)|bufferADC_L;
-		//memory.put(strAddr, bufferADC);
-		strAddr += 2;
-		interrupted = false;
-	}else if(sleep){
-		Serial.begin(57600);                                                         
-		Serial.println(F("Sleeping..."));
-		Serial.flush();
-		Serial.end();
-		
-		radio.powerDown();                                           // Calls the function to power down the nRF24L01
-		
-		for(int i = 0; i < TEMPO_ENTRE_CADA_LEITURA; ++i){
-			LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);          // Function to put the arduino in sleep mode
-		}
-		
-		radio.powerUp();                                             // Calls the function to power up the nRF24L01
-		Serial.begin(57600);                                                         
-		Serial.println(F("Waking..."));
-		Serial.flush();
-		Serial.end();
-    
-    sleep = false;
-		analogRead_freeRunnig(3);
-	}
-
+  delay(1000);
 }
 
 bool enviarDados() {

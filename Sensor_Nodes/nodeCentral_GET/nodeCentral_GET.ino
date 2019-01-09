@@ -1,10 +1,13 @@
-#define TINY_GSM_MODEM_SIM800
-#define SerialMon Serial
-#define SerialAT Serial1
+#define TINY_GSM_MODEM_SIM800                                                                     // Defines the model of our gsm module
+#define SerialMon Serial                                                                          // Serial communication with the computer
+#define SerialAT Serial3                                                                          // Serial communication with the gsm module
+#define TINY_GSM_DEBUG SerialMon                                  
 
-#include <StreamDebugger.h>
+#define DUMP_AT_COMMANDS                                                                          // Comment this if you don't need to debug the commands to the gsm module
+#define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
+
 #include <TinyGsmClient.h>
-#include <SoftwareSerial.h>
+#include <ArduinoHttpClient.h>
 
 #include <LowPower.h>
 
@@ -16,29 +19,45 @@
 #include <RF24.h>
 #include <SPI.h>
 
-#define TEMPOENTRECADALEITURA 60000                             // Time between each reading in milliseconds 
-#define PORTADTR 7
-#define DEBUG
+//INITIAL CONFIGURATION OF NRF
+const int pinCE = 53;                                                                             // This pin is used to set the nRF24 to standby (0) or active mode (1)
+const int pinCSN = 48;                                                                            // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
+const int interruptPin = 18;                                                                      // This pin is used to wake wape the arduino when a payload is received
 
+RF24 radio(pinCE, pinCSN);                                                                        // Declare object from nRF24 library (Create your wireless SPI)
+RF24Network network(radio);                                                                       // Network uses that radio
+
+#define id_origem 00                                                                              // Address of this node
 
 //INITIAL CONFIGURATION OF SIM800
+
+/* ### APN configurations ###  */
+
 const char apn[]  = "claro.com.br";
 const char user[] = "claro";
 const char pass[] = "claro";
-SoftwareSerial SerialAT(4, 5);                                   // Serial Port configuration -(RX, TX) pins of SerialAT
-StreamDebugger debugger(SerialAT, SerialMon);
-TinyGsm modem(debugger);
-TinyGsmClient client(modem);
 
-//INITIAL CONFIGURATION OF NRF
-const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
-const int pinCSN = 9;                                           // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
+/*
+const char apn[]  = "timbrasil.br";
+const char user[] = "tim";
+const char pass[] = "tim";
+*/
 
-RF24 radio(pinCE, pinCSN);                                      // Declare object from nRF24 library (Create your wireless SPI)
-RF24Network network(radio);                                     // Network uses that radio
+const int DTR_PIN = 7;                                                                               // This pin is used to wake up the gsm module
 
-const uint16_t id_origem = 00;                                  // Address of this node
-const uint16_t ids_destino[3] = {01, 02, 03};                   // Addresses of the others nodes
+// Server details
+const char server[] = "200.129.43.208";
+const int  port = 8080;
+
+#ifdef DUMP_AT_COMMANDS
+  #include <StreamDebugger.h>
+  StreamDebugger debugger(SerialAT, SerialMon);
+  TinyGsm modem(debugger);
+#else
+  TinyGsm modem(SerialAT);
+#endif
+  TinyGsmClient client(modem);
+  HttpClient http(client, server, port);
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -47,284 +66,286 @@ struct payload_t {
   float umidade;
   float tensao_c;
   float tensao_r;
+  String  timestamp;
 };
 
 //GLOBAL VARIABLES
-payload_t payload;                                              // Used to store the payload from the sensor node
-bool dataReceived;                                              // Used to know whether a payload was received or not
+const char ArraySize = 12;                                                                        // Amount of payloads the central node is going to save to send to the webservice
+payload_t ArrayPayloads[ArraySize];                                                               // Array to save the payloads
 
-void setup() {
-  SerialMon.begin(57600);                                           // Start Serial communication
-  delay(10);
+char ArrayCount = 0;                                                                              // Used to store the next payload    
+payload_t payload;                                                                                // Used to store the payload from the sensor node
+bool dataReceived;                                                                                // Used to know whether a payload was received or not
 
+long previousMillis = 0;
+long interval = 10000; //(ms)
 
-  /* SerialAT (GSM) configuration */
-  SerialMon.println("Initializing modem...");
-  SerialAT.begin(57600);
-  delay(3000);                                                 // Delays of three seconds
-  sendAT();                                                     // Send AT command to check if the GSM is responding
+void setup() { 
+  /* SIM800L configuration */
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+    delay(10);
+    
+    SerialMon.println(F("Initializing SIM800L and Configuring..."));
+    SerialAT.begin(57600);
+    delay(3000);
+    
+    pinMode(DTR_PIN, OUTPUT);
+    digitalWrite(DTR_PIN, LOW);
 
-  pinMode(PORTADTR, OUTPUT);                                    // Configure DTR pin to control sleep mode of the GSM
+    SerialMon.println(F("Shutting SIM800L down"));
+    sleepGSM();
+    
+    SerialMon.flush();
+    SerialMon.end();
+  #else
 
-#ifdef DEBUG
-  SerialAT.println("AT+CMEE=2");                                 // Send AT command to activate the verbose format of error messages
-  delay(2000);
-  gsmAnswer();
-#endif
-
+    /* SIM800L configuration*/
+    
+    SerialAT.begin(57600);                                                                        // Starts serial communication
+    delay(3000);                                                                                  // Waits to communication be established
+    
+    sleepGSM();                                                                                   // Puts gsm to sleeps
+  #endif
+    
   /* nRF24L01 configuration*/
-  SerialMon.println("Initializing nRF24L01...");
-  SPI.begin();                                                  // Start SPI protocol
-  radio.begin();                                                // Start nRF24L01
-  radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-  radio.setPayloadSize(32);                                     // Set payload Size
-  radio.setPALevel(RF24_PA_LOW);                                // Set Power Amplifier level
-  radio.setDataRate(RF24_250KBPS);                              // Set transmission rate
-  attachInterrupt(0, receberDados, FALLING);                    // Attach the pin where the interruption is going to happen
-  network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
-}
+  #ifdef DEBUG
+    SerialMon.begin(57600);                                                         
+    SerialMon.println(F("Initializing nRF24L01..."));
+    SerialMon.flush();
+    SerialMon.end();
+  #endif
+  
+  SPI.begin();                                                                                    // Starts SPI protocol
+  radio.begin();                                                                                  // Starts nRF24L01
+  radio.maskIRQ(1, 1, 0);                                                                         // Create a interruption mask to only generate interruptions when receive payloads
+  radio.setPayloadSize(32);                                                                       // Set payload Size
+  radio.setPALevel(RF24_PA_LOW);                                                                  // Set Power Amplifier level
+  radio.setDataRate(RF24_250KBPS);                                                                // Set transmission rate
 
-void sendAT() {
-  SerialAT.println("AT");
-  delay (2000);
-  gsmAnswer();
+  network.begin(/*channel*/ 120, /*node address*/ id_origem);                                     // Starts the network
+
 }
 
 void loop() {
-  network.update();                                            // Check the network regularly
+  network.update();                                                                               // Check the network regularly
+  #ifdef DEBUG
+    SerialMon.begin(57600);
+  #endif
+  
+  unsigned long currentMillis = millis();
 
-  SerialAT.println("ATZ");                                       // Sends AT command to reset the GSM
-  delay (9000);
-  gsmAnswer();
+   if(currentMillis - previousMillis > interval) {
+      #ifdef DEBUG
+        SerialMon.println(F("\nShutting GSM down"));
+      #endif
 
-  if (radio.rxFifoFull()) {                                     // If the RX FIFO is full, the RX FIFO is cleared
-    radio.flush_rx();
-  } else if (radio.txFifoFull()) {                              // If the TX FIFO is full, the TX FIFO is cleared
-    radio.flush_tx();
-  }
+       /* Puts gsm to sleep again */
+       sleepGSM();
+
+      #ifdef DEBUG
+        SerialMon.println(F("Shutting Arduino down"));
+        SerialMon.flush();
+        SerialMon.end();
+      #endif
+
+      attachInterrupt(digitalPinToInterrupt(interruptPin), interruptFunction, FALLING);           // Attachs the interrupt again after enabling interruptions
+      
+      LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                                            // Function to put the arduino in sleep mode
+
+      detachInterrupt(digitalPinToInterrupt(interruptPin));
+      
+      /* Wakes gsm up */
+      #ifdef DEBUG
+        SerialMon.begin(57600);
+      #endif
+      
+      wakeGSM();                                                                                 // Wakes the gsm                                                            
+      delay(1000);                                                                               // Waits for the gsm's startup
+      
+      #ifdef DEBUG
+        SerialMon.println(F("GSM woke up"));
+        SerialMon.println(F("Arduino woke up"));
+        SerialMon.flush();
+        SerialMon.end();
+      #endif
+  }   
+
+  receiveData();                                         
  
-  SerialMon.println("\nShuting GSM down...");
-  sleepGSM();                                                  // Calls the function to put GSM in sleep mode
-
-  SerialMon.println("Shutting Arduino down");
-  SerialMon.flush();
-
-  LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);                  // Function to put the arduino in sleep mode
-  
-  attachInterrupt(0, receberDados, FALLING);
-
-
-  SerialMon.println("Arduino woke up");
-
-  SerialMon.println("Waking modem up...");
-  wakeGSM();                                                    // Calls the function to wake up the GSM
-
-                                     
-  if (dataReceived) {                                        // Check if a payload was received. If true, sends the data to the web service.
-
-    //configureBearerProfile("claro.com.br", "claro", "claro");// Configure the GSM network
-    configureBearerProfile("timbrasil.br", "tim", "tim");
-    sendGET_Requisition();                                   // Sends a GET requisition to the web service with the data received from the sensor node
-  
+  if (dataReceived) {
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+    #endif
+    
     dataReceived = false;
+    
+    if(!modem.testAT()){
+        wakeGSM();                                                                                 // Wakes the gsm                                                            
+        delay(1000);                                                                               // Waits for the gsm's startup
+    }
+
+    /* Gets the timestamp and removes special characters of the string */
+    ArrayPayloads[ArrayCount - 1].timestamp = modem.getGSMDateTime(DATE_FULL);
+    ArrayPayloads[ArrayCount - 1].timestamp.remove(2,1);
+    ArrayPayloads[ArrayCount - 1].timestamp.remove(4,1);
+    ArrayPayloads[ArrayCount - 1].timestamp.remove(6,1);
+    ArrayPayloads[ArrayCount - 1].timestamp.remove(8,1);
+    ArrayPayloads[ArrayCount - 1].timestamp.remove(10,1);
+    ArrayPayloads[ArrayCount - 1].timestamp.remove(12);
+
+    /* Check if the array is full, if it is, sends all the payloads to the webservice */
+
+    if(ArrayCount == ArraySize){
+      #ifdef DEBUG
+        SerialMon.println(F("\nConnecting to the server..."));
+        connection(); 
+        
+        int signalQlt = modem.getSignalQuality();
+        SerialMon.println("GSM Signal Quality: " + String(signalQlt));
+        
+        SerialMon.println(F("Publishing payload..."));
+        publish();
+        delay(1000);
+
+      #else
+        connection();
+        publish(); 
+        delay(1000);
+      #endif
+
+      /* Starts to save the payloads again whether the payloads were sent or not */
+      ArrayCount = 0;
+    }
+
+    previousMillis = millis();
+    
   }
 
+  #ifdef DEBUG
+      SerialMon.flush();
+      SerialMon.end();
+  #endif
 
+}
+
+void interruptFunction(){
+    
+}
+
+void connection(){
+  #ifdef DEBUG
+    SerialMon.println(F("Inicializando GSM..."));
+    modem.restart();  
+
+    SerialMon.println(F("Aguardando rede..."));
+    modem.waitForNetwork();
+  
+    SerialMon.print(F("Conectando a "));
+    SerialMon.print(apn);
+    SerialMon.println("...");
+  
+    modem.gprsConnect(apn, user, pass);
+    
+  #else
+    modem.restart();
+
+    modem.waitForNetwork();
+       
+    modem.gprsConnect(apn, user, pass);
+
+  #endif
+}
+
+void receiveData() {
+  RF24NetworkHeader header;
+  
+  network.update();
+
+  if(network.available()) {                               
+    network.read(header, &payload, sizeof(payload));                                   // Reads the payload received
+     
+    ArrayPayloads[ArrayCount] = payload;                                               // Saves the payload received
+    ++ArrayCount;                                            
+    
+    dataReceived = true;
+    
+    #ifdef DEBUG
+      SerialMon.begin(57600);
+      SerialMon.print(F("\nReceived data from sensor: "));
+      SerialMon.println(payload.colmeia);
+  
+      SerialMon.println(F("The data: "));
+      SerialMon.print(payload.colmeia);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.temperatura);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.umidade);
+      SerialMon.print(F(" "));
+      SerialMon.print(payload.tensao_c);
+      SerialMon.print(F(" "));
+      SerialMon.println(payload.tensao_r);
+      SerialMon.print(F(" "));
+      SerialMon.println(payload.timestamp);
+      
+      SerialMon.flush();
+      SerialMon.end();
+    #endif 
+  }
+  
+}
+
+void publish(){
+
+  /* Sends to the webservice all the payloads saved */
+   
+  for(int i = 0; i < ArraySize; ++i){
+    //{idcolmeia}/{temperatura}/{umidade}/{tensaosensores}/{tensaorepetidores}/{tempexterna}/{umidexterna}/{bateriagsm}
+    String msg = "/webservice/coleta/" + String(ArrayPayloads[i].colmeia) + "/" + String(ArrayPayloads[i].temperatura) + "/" + String(ArrayPayloads[i].umidade) + "/" + String(ArrayPayloads[i].tensao_c) + "/" + String(ArrayPayloads[i].tensao_r) + "/" + String(0.0) + "/" + String(0.0) + "/" + String(0.0); 
+    //+ ArrayPayloads[i].timestamp;
+    
+    int length = msg.length();
+    char msgBuffer[length];
+    msg.toCharArray(msgBuffer,length+1);
+      
+    SerialMon.println(F("Solicitação HTTP GET..."));
+    
+    int err = http.get(msgBuffer);
+    
+    if (err != 0) {
+        SerialMon.println(F("Falha ao conectar"));
+        SerialMon.println(err);
+        //Tratar erros no envio
+    }
+
+    int status = http.responseStatusCode();
+    SerialMon.println(status);
+
+    length = http.contentLength();
+    if (length >= 0) {
+      SerialMon.print(F("Content length is: "));
+      SerialMon.println(length);
+    }
+
+    
+  }
+
+  http.stop();
+  SerialMon.println(F("Server disconnected"));
+
+  modem.gprsDisconnect();
+  SerialMon.println(F("GPRS disconnected"));
+  
 }
 
 void sleepGSM() {
-  digitalWrite(PORTADTR, HIGH);                                // Puts DTR pin in HIGH mode so we can enter in sleep mode
-
-  SerialAT.println("AT+CFUN=0");                               // Sends AT command to activate sleep mode
-  delay(1000);
-  gsmAnswer();
-
-  SerialAT.println("AT+CSCLK=1");                               // Sends AT command to activate sleep mode
-  delay(2000);
-  gsmAnswer();
-
-}
-
-void wakeGSM() {
-  digitalWrite(PORTADTR, LOW);                                // Puts DTR pin in LOW mode so we can exit the sleep mode
-  delay(500);                                                 // Waits 500ms so the GSM starts properly
-
-  sendAT();
-
-  SerialAT.println("AT+CSCLK=0");                              // Sends AT command to deactivate sleep mode
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+CFUN=1");                               // Sends AT command to activate sleep mode
-  delay(1000);
-  gsmAnswer();
-
-
-}
-
-void receberDados() {
-  RF24NetworkHeader header;
-
-
-  while (!network.available()) {                              // Keeps busy-waiting until the transmission of the payload is completed
-    network.update();
-  }
-
-  while (network.available()) {                               // Reads the payload received
-    network.read(header, &payload, sizeof(payload));
-
-#ifdef DEBUG
-    SerialMon.print("Received data from sensor: ");
-    SerialMon.println(payload.colmeia);
-
-    SerialMon.println("The data: ");
-    //Serial.print("Colmeia: ");
-    SerialMon.print(payload.colmeia);
-    SerialMon.print(" ");
-    //Serial.print("Temperatura: ");
-    SerialMon.print(payload.temperatura);
-    SerialMon.print(" ");
-    //Serial.print("Umidade: ");
-    SerialMon.print(payload.umidade);
-    SerialMon.print(" ");
-    //Serial.print("Tensao sensor: ");
-    SerialMon.print(payload.tensao_c);
-    SerialMon.print(" ");
-    //Serial.print("Tensao repetidor: ");
-    SerialMon.println(payload.tensao_r);
-#endif
-
-    dataReceived = true;
-  }
-
-}
-
-bool sendGET_Requisition() {
-  SerialAT.println("AT+CSQ");
-  delay (1000); //Tempo de espera
-  gsmAnswer();
-
-  SerialAT.println("AT+HTTPINIT");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+HTTPPARA=\"CID\",1");
-  delay (2000);
-  gsmAnswer();
-
+  modem.radioOff();
+  digitalWrite(DTR_PIN, HIGH);                                                          // Puts DTR pin in HIGH mode so we can enter in sleep mode
+  modem.sleepEnable(true);
   
-  SerialAT.println("AT+SAPBR=2,1");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=4,1");
-  delay (2000);
-  gsmAnswer();
-  
-  SerialAT.println("AT+CGATT?");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+HTTPPARA=\"URL\",\"api.thingspeak.com/update?api_key=X1H7B6RD67MHVGIZ&field1=" + String(payload.colmeia) + "&field2=" + String(payload.temperatura) + "&field3=" + String(payload.umidade) + "&field4=" + String(payload.tensao_c) + "&field5=" + String(payload.tensao_r) + "\"");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+HTTPACTION=0");
-  delay (10000);
-  gsmAnswer();
-
-  SerialAT.println("AT+HTTPREAD");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+HTTPTERM");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=0,1");
-  delay (2000);
-  gsmAnswer();
 }
 
-bool configureBearerProfile(const char* APN, const char* USER, const char* PASS) {
-
-  SerialAT.println("AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\"");
-  delay (1000); //Tempo de espera
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=3,1,\"APN\",\"" + String(APN) + "\"");
-  delay (3000); //Tempo de espera
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=3,1,\"USER\",\"" + String(USER) + "\"");
-  delay (3000);
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=3,1,\"PWD\",\"" + String(PASS) + "\"");
-  delay (3000); //Tempo de espera
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=1,1");
-  delay (2000);
-  gsmAnswer();
-
-  SerialAT.println("AT+SAPBR=2,1");
-  delay (2000);
-  gsmAnswer();
-
-}
-
-
-void gsmAnswer() {
-  while (SerialAT.available())
-  {
-    if (SerialAT.available() > 0)                      // If receives data
-    {
-      Serial.write(SerialAT.read());                   // Prints out the data
-
-    }
-  }
-}
-
-void cleanBuffer()
-{
-  delay( 250 );
-  while ( SerialAT.available() > 0)
-  {
-    SerialAT.read();    // Clean the input buffer
-    delay(50);
-  }
-}
-
-bool waitFor(const char* expected_answer1)
-{
-  uint8_t x = 0;
-  bool answer = false;
-  char response[100];
-  unsigned long previous;
-
-  memset(response, (char)0, 100);    // Initialize the string
-
-  delay( 250 );
-
-  x = 0;
-  previous = millis();
-
-  // this loop waits for the answer
-  do {
-    // if there are data in the UART input buffer, reads it and checks for the asnwer
-    if (SerialAT.available() > 0) {
-      response[x] = SerialAT.read();
-      x++;
-      // check if the desired answer 1  is in the response of the module
-      if (strstr(response, expected_answer1) != NULL)
-      {
-        answer = true;
-      }
-    }
-    delay(10);
-  } while ((answer == false) && ((millis() - previous) < 10000 )); // Waits for the asnwer with time out
-
-  Serial.write(response);
-  return answer;
+void wakeGSM() {  
+  digitalWrite(DTR_PIN, LOW);                                                          // Puts DTR pin in LOW mode so we can exit the sleep mode
+  modem.sleepEnable(false);
 }

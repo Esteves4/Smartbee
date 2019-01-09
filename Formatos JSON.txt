@@ -1,0 +1,42 @@
+Formato envio POST em /coleta/add
+
+{
+	"coletas":
+	[
+		{
+			"valor":"15.0",
+			"sensor_id":
+			{
+				"id":1
+				
+			},
+			"colmeia_id":
+			{
+				"id":1
+				
+			}
+		},
+		{
+			"valor":"15.0",
+			"sensor_id":
+			{
+				"id":2
+				
+			},
+			"colmeia_id":
+			{
+				"id":1
+				
+			}
+		}
+	]
+	
+}
+
+Formato envio do Login em /signup
+
+{  
+  "email":"string",
+  "password":"string"
+}
+
