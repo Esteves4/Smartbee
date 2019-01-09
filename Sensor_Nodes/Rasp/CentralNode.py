@@ -38,6 +38,10 @@ apn = "claro.com.br"
 user = "claro"
 password = "claro"
 
+#apn = "timbrasil.br"
+#user = "tim"
+#password = "tim"
+
 # MQTT Configuration
 mqtt = MQTT.PubSubClient(SerialAT)
 
@@ -164,8 +168,8 @@ def saveAudioToSD(buffer, timestamp):
 		file.write(msg+'\n')
 
 	#Selecionando 100 amostras do audio
-	msg = toString(buffer[0:101])
-		
+	msg = toString(buffer[0:101]) 
+	
 	with open("audio_to_send/buffer_audio.txt", "a") as file:
 		file.write(msg+'\n')
 
@@ -249,6 +253,10 @@ while(1):
 			logger.error("Erro na conexão com servidor MQTT")			
 		else:
 			publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+
+		if not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
+			logger.error("Erro na conexao com servidor MQTT")
+		else:
 			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
 				
 		

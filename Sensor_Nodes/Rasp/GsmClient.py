@@ -59,7 +59,7 @@ class GsmClient:
 		while self.millis() - start < timeout:
 			self.sendAT("+CPIN?")
 			if(self.waitResponse(r1="\r\n+CPIN:") != 1):
-				time.sleep(1)
+				time.time(1)
 				continue
 			status = self.waitResponse(r1="READY", r2="SIM PIN", r3="SIM PUK", r4="NOT INSERTED")
 			self.waitResponse()
