@@ -11,7 +11,7 @@ def zipFiles(path, timestamp):
 	filename = timestamp.strftime("%d_%m_%y")
 
 	if os.path.exists(path + filename + ".txt"):
-		os.system("sudo tar -C " + path + " -zcvf " + path + filename + ".tar.gz ./" + filename + ".txt --remove-files")
+		os.system("sudo tar -C " + path + " -zcvf " + "/srv/ftp/" + filename + ".tar.gz ./" + filename + ".txt --remove-files")
 	
 timestamp = datetime.datetime.now()
 
