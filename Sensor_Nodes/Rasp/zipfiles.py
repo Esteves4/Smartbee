@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 import time 
 import datetime 
 import os
@@ -13,5 +15,5 @@ def zipFiles(path, timestamp):
 	
 timestamp = datetime.datetime.now()
 
-zipFiles("data_collect/", timestamp)
-zipFiles("audio_collect/", timestamp)
+zipFiles("/home/pi/Documents/Smartbee/Sensor_Nodes/Rasp/data_collect/", timestamp)
+zipFiles("/home/pi/Documents/Smartbee/Sensor_Nodes/Rasp/audio_collect/", timestamp)
