@@ -11,7 +11,7 @@ print("GPRS Connect:",SerialAT.gprsConnect("claro.com.br","claro","claro"))
 print("Starting MQTT")
 print("Set Server:",mqtt.setServer(domain="200.129.43.208",port="1883"))
 print("Connect:",mqtt.connect(id="CentralNode", user="teste@teste", password="123456"))
-print("Publish:",mqtt.publish(topic="sensors/coleta_data", payload="1,25.0,25.0,12.0,12.0,10.0,20181213102500"))
+print("Publish:",mqtt.publish(topic="sensors/coleta_data", payload="1,25.0,25.0,12.0,12.0,10.0,20190123152100"))
 
 
 
