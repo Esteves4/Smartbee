@@ -14,7 +14,7 @@
 #include <MicrochipSRAM.h>  
 
 #define IDCOLMEIA 1                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 3                              // Time between each reading in seconds  
+#define TEMPO_ENTRE_CADA_LEITURA 300                              // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
 #define DEBUG
@@ -88,7 +88,7 @@ float tensao_lida = 0;
 float peso_lido = 0;
 
 /* Analogic ports for reading */
-int SENSORSOM = A0;
+int SENSORSOM = A3;
 int SENSORTENSAO = A2;
 //int SENSORCO2 = A4;
 
@@ -236,11 +236,11 @@ void loop() {
 
     start = millis();
     uint8_t i = 0;
+    
 		for(uint32_t j = 0; j < 76000; j = j + 2){
       
-			//memory.get(j, bufferADC);
-
-      payload_audio.audio[i] = bufferADC++;
+			memory.get(j, bufferADC);
+      payload_audio.audio[i] = bufferADC;
       ++i;
       if(i == audio_size){
         if( !enviarAudio() ){
@@ -260,7 +260,7 @@ void loop() {
 		
 	}else if(interrupted){
 		bufferADC = (bufferADC_H << 8)|bufferADC_L;
-		//memory.put(strAddr, bufferADC);
+		memory.put(strAddr, bufferADC);
 		strAddr += 2;
 		interrupted = false;
 	}else if(sleep){
