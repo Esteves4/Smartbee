@@ -132,8 +132,13 @@ void lerMQandKy() {
 
 /*Reads the voltage of the battery */
 void lerTensao() {
-	float valor_lido_tensao = analogRead(SENSORTENSAO);
-	tensao_lida = ((valor_lido_tensao * 0.00489) * 5);
+  unsigned int soma = 0;
+
+  for (byte i = 0; i < 10; i++) {
+    soma += analogRead(SENSORTENSAO);
+  }
+
+	tensao_lida = ((soma / 10) * (5.0 / 1024.0));
 }
 
 void analogRead_freeRunnig(uint8_t pin){
@@ -294,7 +299,7 @@ bool enviarDados() {
 	payload.colmeia = IDCOLMEIA;
 	payload.temperatura = temperatura_lida;
 	payload.umidade = umidade_lida;
-	payload.tensao_c = 0;
+	payload.tensao_c = tensao_lida;
 	payload.tensao_r = 0;
 	payload.peso = peso_lido;
 
