@@ -69,9 +69,10 @@ radio.printDetails()
 
 # Control Variables
 counter = 0
+counterAudio = 0
 audio_count = 0
 
-MAX_COUNTER = 5
+MAX_COUNTER = 12
 MAX_AUDIO_COUNT = 760
 
 bufferAudio = []
@@ -86,8 +87,8 @@ if not os.path.exists("data_to_send/"):
 
 if not os.path.exists("audio_collect/"):
 	os.makedirs("audio_collect/")
-if not os.path.exists("audio_to_send"):
-	os.makedirs("audio_to_send")
+if not os.path.exists("audio_to_send/"):
+	os.makedirs("audio_to_send/")
 
 if not os.path.exists("counter.txt"):
 	with open("counter.txt","w") as file:
@@ -150,7 +151,7 @@ def saveDataToSD(buffer, timestamp, isLast):
 	with open("data_collect/"+timestamp.strftime("%d_%m_%y") + ".txt", "a") as file:
 		file.write(msg + '\n')
 
-	with open("data_to_send/"+"buffer_data.txt", "a") as file:
+	with open("data_to_send/buffer_data.txt", "a") as file:
 
 		if isLast:
 			msg += '\n'
@@ -169,9 +170,10 @@ def saveAudioToSD(buffer, timestamp):
 
 	#Selecionando 100 amostras do audio
 	msg = toString(buffer[0:101]) 
-	
+	msg = msg + "," + timestamp.strftime("%Y%m%d%H%M%S")
+ 
 	with open("audio_to_send/buffer_audio.txt", "a") as file:
-		file.write(msg+'\n')
+		file.write(msg + '\n')
 
 def connection_gsm(gsmClient, apn, user, password):
 	if not gsmClient.restart():
@@ -192,7 +194,7 @@ def publish_MQTT(mqttClient, topic, file_source, file_temp):
 		with open(file_source, "r") as file:
 			count = 1
 			for line in file:
-				if count > 5:
+				if count > 12:
 					file2.write(line)
 				else:	
 					if not mqttClient.publish(topic,line.rstrip('\n')):
