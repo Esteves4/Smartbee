@@ -8,7 +8,7 @@ class PubSubClient:
 	MQTT_VERSION = MQTT_VERSION_3_1_1
 
 	#MQTT_MAX_PACKET_SIZE: maximm packet size
-	MQTT_MAX_PACKET_SIZE = 700
+	MQTT_MAX_PACKET_SIZE = 1500
 
 	#MQTT_KEEPALIVE: keepAlive interval in Seconds
 	MQTT_KEEPALIVE = 15

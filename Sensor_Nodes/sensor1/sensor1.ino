@@ -235,6 +235,9 @@ void loop() {
 		/* Turn off the sensors */
 		digitalWrite(PORTADHT, LOW);
 
+    enviarSTART();
+    delay(500);
+    
     enviarDados();                                              // Sends the data to the gateway
 
     Serial.begin(57600);
@@ -268,7 +271,11 @@ void loop() {
     Serial.flush();
     Serial.end();
     sleep = true;
+
+    delay(500);
+    enviarSTOP();
 		
+   
 	}else if(interrupted){
 		bufferADC = (bufferADC_H << 8)|bufferADC_L;
 		memory.put(strAddr, bufferADC);
@@ -296,6 +303,43 @@ void loop() {
 		analogRead_freeRunnig(3);
 	}
 
+}
+
+bool enviarSTART(){
+  RF24NetworkHeader header(id_destino, 'S');                   // Sets the header of the payload   
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+  
+  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do{
+    radio.flush_tx();
+    sent = network.write(header, "1", sizeof("1"));
+
+  }while(!sent && (end_a - start_a) < 300);
+
+ 
+   return sent;
+}
+
+
+bool enviarSTOP(){
+  RF24NetworkHeader header(id_destino, 's');                   // Sets the header of the payload   
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+  
+  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do{
+    radio.flush_tx();
+    sent = network.write(header, "1", sizeof("1"));
+
+  }while(!sent && (end_a - start_a) < 300);
+
+ 
+   return sent;
 }
 
 bool enviarDados() {
