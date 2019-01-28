@@ -230,7 +230,7 @@ void loop() {
 		digitalWrite(PORTADHT, LOW);
 
     enviarSTART();
-    delay(200);
+    delay(500);
     
     enviarDados();                                              // Sends the data to the gateway
 
@@ -266,7 +266,7 @@ void loop() {
     Serial.end();
     sleep = true;
 
-    delay(200);
+    delay(500);
     enviarSTOP();
 		
    
