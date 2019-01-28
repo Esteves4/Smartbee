@@ -8,10 +8,11 @@ def zipFiles(path, timestamp, ident):
 	# Verifica se existe arquivo txt com data anterior, se existir, comprime e exclui o arquivo txt
 	timestamp = timestamp - datetime.timedelta(days=1) 
 
-	filename = timestamp.strftime("%d_%m_%y") + "_" + str(ident)
+	filename_tar = timestamp.strftime("%d_%m_%y") + "_" + str(ident)
+	filename_txt = timestamp.strftime("%d_%m_%y")
 
-	if os.path.exists(path + filename + ".txt"):
-		os.system("sudo tar -C " + path + " -zcvf " + "/srv/ftp/" + filename + ".tar.gz ./" + filename + ".txt --remove-files")
+	if os.path.exists(path + filename_txt + ".txt"):
+		os.system("sudo tar -C " + path + " -zcvf " + "/srv/ftp/" + filename_tar + ".tar.gz ./" + filename_txt + ".txt --remove-files")
 	
 timestamp = datetime.datetime.now()
 

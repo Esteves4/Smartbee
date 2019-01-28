@@ -34,13 +34,17 @@ logger.addHandler(handler)
 SerialAT = gsm.GsmClient('/dev/ttyAMA0', 57600)
 mqtt = MQTT.PubSubClient(SerialAT)
 
-apn = "claro.com.br"
-user = "claro"
-password = "claro"
+#apn = "claro.com.br"
+#user = "claro"
+#password = "claro"
 
 #apn = "timbrasil.br"
 #user = "tim"
 #password = "tim"
+
+apn = "zap.vivo.com.br"
+user = "vivo"
+password = "vivo"
 
 # MQTT Configuration
 mqtt = MQTT.PubSubClient(SerialAT)
@@ -68,8 +72,8 @@ network.begin(120, this_node)    # channel 120
 radio.printDetails()
 
 # Control Variables
-counter = 0
-counterAudio = 0
+d_counter = 0
+a_counter = 0
 audio_count = 0
 
 MAX_COUNTER = 12
@@ -77,6 +81,7 @@ MAX_AUDIO_COUNT = 760
 
 bufferAudio = []
 
+previousStart = False
 dataReady = False
 audioReady = False
 
@@ -92,10 +97,13 @@ if not os.path.exists("audio_to_send/"):
 
 if not os.path.exists("counter.txt"):
 	with open("counter.txt","w") as file:
-		file.write(str(0) + '\n')
+		file.write(str(0)+","+str(0) + '\n')
 
 with open("counter.txt","r") as file:
-	counter = int(file.readline())
+	line = file.readline()
+	line = line.split(",")
+	d_counter = int(line[0])
+	a_counter = int(line[1])
 
 
 def receiveData():
@@ -106,12 +114,18 @@ def receiveData():
 		
 		if header.type == 68:
 			bufferData = list(unpack('<b5fb',bytes(payload)))
-			return True, False, bufferData
+			return False, False, True, False, bufferData
 		elif header.type == 65:
 			bufferData = list(unpack('<b50H', bytes(payload)))
-			return False, True, bufferData
+			return False, False, False, True, bufferData
+		elif header.type == 83:
+			print("START")
+			return True, False, False, False, [0]
+		elif header.type == 115:
+			print("STOP")
+			return False, True, False, False, [0]
 		
-	return False, False, [0]
+	return False, False, False, False, [0]
 def setRaspTimestamp(gsm, apn, user, password):
 	if not connection_gsm(gsm,apn, user, password):
 		return False
@@ -160,7 +174,7 @@ def saveDataToSD(buffer, timestamp, isLast):
 
 		file.write(msg)
 
-def saveAudioToSD(buffer, timestamp):
+def saveAudioToSD(buffer, timestamp, isLast):
 	buffer.append(timestamp.strftime("%Y%m%d%H%M%S"))
 	
 	msg = toString(buffer)
@@ -173,7 +187,10 @@ def saveAudioToSD(buffer, timestamp):
 	msg = msg + "," + timestamp.strftime("%Y%m%d%H%M%S")
  
 	with open("audio_to_send/buffer_audio.txt", "a") as file:
-		file.write(msg + '\n')
+		if isLast:
+			file.write(msg + '\n')
+		else:
+			file.write(msg + '/')
 
 def connection_gsm(gsmClient, apn, user, password):
 	if not gsmClient.restart():
@@ -204,9 +221,10 @@ def publish_MQTT(mqttClient, topic, file_source, file_temp):
 	os.remove(file_source)
 	os.rename(file_temp,file_source)
 
-def updateCounter(newCounter):
+def updateCounter(new_d_counter, new_a_counter):
 	with open("counter.txt","w") as file:
-		file.write(str(newCounter) + '\n')
+		file.write(str(new_d_counter) + "," + str(new_a_counter)+ '\n')
+
 
 #Descomentar linha abaixo para atualizar data e hora pelo SIM800L
 #setRaspTimestamp(SerialAT, apn, user, password)
@@ -214,20 +232,46 @@ def updateCounter(newCounter):
 while(1):
 	network.update()
 
-	dataReceived, audioReceived, bufferData = receiveData()
+	startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
+
+	if(startReceived):
+		if(previousStart):
+			if a_counter == 2:
+				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
+				a_counter = 0
+				updateCounter(d_counter, a_counter)
+			else:
+				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
+				a_counter += 1
+				updateCounter(d_counter, a_counter)
+		else:
+			previousStart = True
+
+	if(stopReceived):
+		if len(bufferAudio) > 0:
+			if a_counter == 2:
+				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
+				a_counter = 0
+				updateCounter(d_counter, a_counter)
+			else:
+				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
+				a_counter += 1
+				updateCounter(d_counter, a_counter)
+
+		previousStart = False
 
 	if(dataReceived):
 		timestamp = getTimeStamp()
 
-		if counter == MAX_COUNTER - 1:
+		if d_counter == MAX_COUNTER - 1:
 			saveDataToSD(bufferData, timestamp, True)
 
 			dataReady = True
 	
 		else:
 			saveDataToSD(bufferData, timestamp, False)
-			counter += 1
-			updateCounter(counter)
+			d_counter += 1
+			updateCounter(d_counter, a_counter)
 
 	elif(audioReceived):
 		if(audio_count == 0):
@@ -238,7 +282,14 @@ while(1):
 			bufferAudio.extend(bufferData[1:])
 		
 		if(audio_count == MAX_AUDIO_COUNT - 1):
-			saveAudioToSD(bufferAudio[1:], bufferAudio[0])		
+			if a_counter == 2:
+				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
+				a_counter = 0
+				updateCounter(d_counter, a_counter)		
+			else:
+				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)			
+				a_counter += 1
+				updateCounter(d_counter, a_counter)		
 			del bufferAudio[:]	
 			
 			if(dataReady):
@@ -249,6 +300,7 @@ while(1):
 			audio_count += 1
 	
 	if audioReady and dataReady:
+		
 		if not connection_gsm(SerialAT,apn, user, password):
 			logger.error("Erro na conexão com rede gsm")			
 		elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
@@ -262,11 +314,12 @@ while(1):
 			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
 				
 		
-		counter = 0
+		d_counter = 0
+		a_counter = 0
 		audio_count = 0
 		audioReady = False
 		dataReady = False
-		updateCounter(counter)
+		updateCounter(a_counter, d_counter)
 		
 		
 
