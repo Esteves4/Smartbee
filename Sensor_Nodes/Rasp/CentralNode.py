@@ -236,7 +236,7 @@ while(1):
 
 	if(startReceived):
 		if(previousStart):
-			if a_counter == 2:
+			if a_counter == 2 and len(bufferAudio) > 0:
 				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
 				a_counter = 0
 				updateCounter(d_counter, a_counter)
@@ -244,10 +244,17 @@ while(1):
 				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
 				a_counter += 1
 				updateCounter(d_counter, a_counter)
+
+			del bufferAudio[:]
+			audio_count = 0
+
+			if (dataReady):
+				audioReady = True
+
 		else:
 			previousStart = True
 
-	if(stopReceived):
+	elif(stopReceived):
 		if len(bufferAudio) > 0:
 			if a_counter == 2:
 				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
@@ -258,9 +265,15 @@ while(1):
 				a_counter += 1
 				updateCounter(d_counter, a_counter)
 
+			del bufferAudio[:]
+			audio_count = 0
+
+			if (dataReady):
+				audioReady = True
+
 		previousStart = False
 
-	if(dataReceived):
+	elif(dataReceived):
 		timestamp = getTimeStamp()
 
 		if d_counter == MAX_COUNTER - 1:

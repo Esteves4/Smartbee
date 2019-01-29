@@ -105,3 +105,5 @@
 2019-01-28 11:54:53,261 - CentralNode-logger - ERROR - Erro na conexao com servidor MQTT
 2019-01-28 12:42:27,027 - CentralNode-logger - ERROR - Erro na conexão com servidor MQTT
 2019-01-28 12:42:29,104 - CentralNode-logger - ERROR - Erro na conexao com servidor MQTT
+2019-01-28 18:36:15,982 - CentralNode-logger - ERROR - Erro na conexão com rede gsm
+2019-01-28 18:36:20,378 - CentralNode-logger - ERROR - Erro na conexao com servidor MQTT
