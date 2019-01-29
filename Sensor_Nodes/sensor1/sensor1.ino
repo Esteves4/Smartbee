@@ -103,6 +103,8 @@ unsigned long end;
 volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
 bool sleep = false;
 
+uint16_t ADCSRA_BKP = 0;
+uint16_t ADCSRB_BKP = 0;
 /* Reads the temperature and the humidity from DHT sensor */
 void lerDHT() {
 	if (isnan(dht.readTemperature())) {
@@ -132,19 +134,20 @@ void lerMQandKy() {
 
 /*Reads the voltage of the battery */
 void lerTensao() {
-  unsigned int soma = 0;
-
-  for (byte i = 0; i < 10; i++) {
-    soma += analogRead(SENSORTENSAO);
-  }
-
-	tensao_lida = ((soma / 10) * (5.0 / 1024.0));
-}
+  // read the input on analog pin 0:
+  int sensorValue = analogRead(A2);
+  // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
+  tensao_lida = sensorValue * 0.00487586;
+} 
 
 void analogRead_freeRunnig(uint8_t pin){
 	if(pin < 0 || pin > 7){
 		return;
 	}
+
+  ADCSRA_BKP = ADCSRA;
+  ADCSRB_BKP = ADCSRB;
+  
 	ADCSRA = 0;             // clear ADCSRA register
 	ADCSRB = 0;             // clear ADCSRB register
 	ADMUX |= (pin & 0x07);    // set A0 analog input pin
@@ -213,6 +216,9 @@ void loop() {
 		ADCSRA = 0;             
 		ADCSRB = 0;
 
+    ADCSRA = ADCSRA_BKP;
+    ADCSRB = ADCSRB_BKP;
+
 		strAddr = 0;
 
 		/* Turn on the sensors */
@@ -221,14 +227,17 @@ void loop() {
 
 		/* Performs the readings */
 		payload.erro_vec = '\0';
-		
+
+    lerTensao();
 		lerDHT();
-		lerTensao();
 		lerPeso();
 
 		/* Turn off the sensors */
 		digitalWrite(PORTADHT, LOW);
 
+    enviarSTART();
+    delay(500);
+    
     enviarDados();                                              // Sends the data to the gateway
 
     Serial.begin(57600);
@@ -262,7 +271,11 @@ void loop() {
     Serial.flush();
     Serial.end();
     sleep = true;
+
+    delay(500);
+    enviarSTOP();
 		
+   
 	}else if(interrupted){
 		bufferADC = (bufferADC_H << 8)|bufferADC_L;
 		memory.put(strAddr, bufferADC);
@@ -290,6 +303,43 @@ void loop() {
 		analogRead_freeRunnig(3);
 	}
 
+}
+
+bool enviarSTART(){
+  RF24NetworkHeader header(id_destino, 'S');                   // Sets the header of the payload   
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+  
+  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do{
+    radio.flush_tx();
+    sent = network.write(header, "1", sizeof("1"));
+
+  }while(!sent && (end_a - start_a) < 300);
+
+ 
+   return sent;
+}
+
+
+bool enviarSTOP(){
+  RF24NetworkHeader header(id_destino, 's');                   // Sets the header of the payload   
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+  
+  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do{
+    radio.flush_tx();
+    sent = network.write(header, "1", sizeof("1"));
+
+  }while(!sent && (end_a - start_a) < 300);
+
+ 
+   return sent;
 }
 
 bool enviarDados() {
@@ -382,14 +432,4 @@ void lerPeso(){
 	Serial.flush();
 	Serial.end();
 
-}
-
-float lerBateria(byte pin) {
-	unsigned int soma = 0;
-
-	for (byte i = 0; i < 10; i++) {
-		soma += analogRead(pin);
-	}
-
-	return ((soma / 10) * (5.0 / 1023.0));
 }
