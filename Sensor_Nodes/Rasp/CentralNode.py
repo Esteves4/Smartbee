@@ -1,6 +1,8 @@
 # coding=utf-8
 import GsmClient as gsm 
 import PubSubClient as MQTT 
+import Adafruit_DHT
+import RPi.GPIO as GPIO
 import time 
 import datetime 
 import os
@@ -84,6 +86,16 @@ bufferAudio = []
 previousStart = False
 dataReady = False
 audioReady = False
+
+# Sensor temperatura externa
+# Tipo sensor
+
+sensor = Adafruit_DHT.DHT22
+
+GPIO.setmode(GPIO.BOARD)
+
+# GPIO conectada
+pino_sensor = 23
 
 if not os.path.exists("data_collect/"):
 	os.makedirs("data_collect/")
@@ -275,6 +287,15 @@ while(1):
 
 	elif(dataReceived):
 		timestamp = getTimeStamp()
+
+		umid, temp = Adafruit_DHT.read_retry(sensor, pino_sensor)
+
+		if umid is not None and temp is not None:
+			bufferData.append(temp)
+			bufferData.append(umid)
+		else:
+			bufferData.append(0.0)
+			bufferData.append(0.0)
 
 		if d_counter == MAX_COUNTER - 1:
 			saveDataToSD(bufferData, timestamp, True)
