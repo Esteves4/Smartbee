@@ -243,12 +243,14 @@ def updateCounter(new_d_counter, new_a_counter):
 
 while(1):
 	network.update()
-
+	if(radio.failureDetected):
+		radio.failureDetected = 0
+		print("ERRO RF24")
 	startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
 
 	if(startReceived):
 		if(previousStart):
-			if a_counter == 2 and len(bufferAudio) > 1:
+			if a_counter == 2 and len(bufferAudio) > 2:
 				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
 				a_counter = 0
 				updateCounter(d_counter, a_counter)
@@ -267,7 +269,7 @@ while(1):
 			previousStart = True
 
 	elif(stopReceived):
-		if len(bufferAudio) > 1:
+		if len(bufferAudio) > 2:
 			if a_counter == 2:
 				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
 				a_counter = 0
