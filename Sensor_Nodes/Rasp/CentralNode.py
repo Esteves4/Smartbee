@@ -356,6 +356,21 @@ while(1):
 		audioReady = False
 		dataReady = False
 		updateCounter(a_counter, d_counter)
+
+		# NRF24L01 Reset
+		octlit = lambda n:int(n,8)
+
+		radio = RF24(RPI_GPIO_P1_22, RPI_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
+		network = RF24Network(radio)
+		this_node = octlit("00")
+
+		radio.begin()
+		time.sleep(0.1)
+		radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
+		radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
+		radio.enableDynamicPayloads()
+		network.begin(120, this_node)    # channel 120
+		radio.printDetails()
 		
 		
 
