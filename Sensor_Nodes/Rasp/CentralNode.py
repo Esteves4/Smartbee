@@ -195,7 +195,11 @@ def saveAudioToSD(buffer, timestamp, isLast):
 		file.write(msg+'\n')
 
 	#Selecionando 100 amostras do audio
-	msg = toString(buffer[0:101]) 
+	if len(buffer)>100:
+		msg = toString(buffer[0:101]) 
+	else:
+		msg = toString(buffer)
+
 	msg = msg + "," + timestamp.strftime("%Y%m%d%H%M%S")
  
 	with open("audio_to_send/buffer_audio.txt", "a") as file:
@@ -243,30 +247,36 @@ def updateCounter(new_d_counter, new_a_counter):
 
 while(1):
 	network.update()
-	if(radio.failureDetected):
-		radio.failureDetected = 0
-		print("ERRO RF24")
+	
 	startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
+	
+	if(not radio.isChipConnected()):
+		logger.error("Radio parou de responder")
+	if(radio.txFifoFull()):
+		logger.error("Radio TX FIFO cheia")
+	if(radio.rxFifoFull()):
+		logger.error("Radio RX FIFO cheia")
 
 	if(startReceived):
 		if(previousStart):
-			if a_counter == 2 and len(bufferAudio) > 2:
-				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
-				a_counter = 0
-				updateCounter(d_counter, a_counter)
+			if len(bufferAudio)> 2:
+				if a_counter == 2:
+					saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
+					a_counter = 0
+					updateCounter(d_counter, a_counter)
+				else:
+					saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
+					a_counter += 1
+					updateCounter(d_counter, a_counter)
+
+				del bufferAudio[:]
+				audio_count = 0
+
+				if (dataReady):
+					audioReady = True
+
 			else:
-				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
-				a_counter += 1
-				updateCounter(d_counter, a_counter)
-
-			del bufferAudio[:]
-			audio_count = 0
-
-			if (dataReady):
-				audioReady = True
-
-		else:
-			previousStart = True
+				previousStart = True
 
 	elif(stopReceived):
 		if len(bufferAudio) > 2:
@@ -358,19 +368,19 @@ while(1):
 		updateCounter(a_counter, d_counter)
 
 		# NRF24L01 Reset
-		octlit = lambda n:int(n,8)
+		#octlit = lambda n:int(n,8)
 
-		radio = RF24(RPI_GPIO_P1_22, RPI_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
-		network = RF24Network(radio)
-		this_node = octlit("00")
+		#radio = RF24(RPI_GPIO_P1_22, RPI_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
+		#network = RF24Network(radio)
+		#this_node = octlit("00")
 
-		radio.begin()
-		time.sleep(0.1)
-		radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
-		radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
-		radio.enableDynamicPayloads()
-		network.begin(120, this_node)    # channel 120
-		radio.printDetails()
+		#radio.begin()
+		#time.sleep(0.1)
+		#radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
+		#radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
+		#radio.enableDynamicPayloads()
+		#network.begin(120, this_node)    # channel 120
+		#radio.printDetails()
 		
 		
 
