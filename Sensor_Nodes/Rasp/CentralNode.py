@@ -8,6 +8,7 @@ import datetime
 import os
 import logging
 import logging.handlers
+import threading
 from struct import * 
 from RF24 import * 
 from RF24Network import *
@@ -87,6 +88,8 @@ previousStart = False
 dataReady = False
 audioReady = False
 
+th = None                                                    # GSM Thread
+
 # Sensor temperatura externa
 # Tipo sensor
 
@@ -117,6 +120,20 @@ with open("counter.txt","r") as file:
 	d_counter = int(line[0])
 	a_counter = int(line[1])
 
+def gsmSend():
+	global SerialAT, apn, user, password, mqtt, user_MQTT, pass_MQTT, broker, topic_data, topic_audio
+
+	if not connection_gsm(SerialAT,apn, user, password):
+		logger.error("Erro na conexão com rede gsm")
+	elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
+		logger.error("Erro na conexão com servidor MQTT")
+	else:
+		publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+
+	if not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
+		logger.error("Erro na conexao com servidor MQTT")
+	else:
+		publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
 
 def receiveData():
 	network.update()
@@ -346,19 +363,11 @@ while(1):
 			audio_count += 1
 	
 	if audioReady and dataReady:
-		
-		if not connection_gsm(SerialAT,apn, user, password):
-			logger.error("Erro na conexão com rede gsm")			
-		elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
-			logger.error("Erro na conexão com servidor MQTT")			
-		else:
-			publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+		if th is not None:
+			th.join()
 
-		if not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
-			logger.error("Erro na conexao com servidor MQTT")
-		else:
-			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
-				
+		th = threading.Thread(target=gsmSend)
+		th.start()
 		
 		d_counter = 0
 		a_counter = 0
