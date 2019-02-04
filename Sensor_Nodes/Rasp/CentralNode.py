@@ -33,6 +33,11 @@ handler.setFormatter(formatter)
 logger.addHandler(handler)
 
 # SIM800L Configuration
+GPIO.setmode(GPIO.BOARD)
+
+pino_rst = 11
+GPIO.setup(11, GPIO.OUT, initial=GPIO.HIGH)
+
 SerialAT = gsm.GsmClient('/dev/ttyAMA0', 57600)
 mqtt = MQTT.PubSubClient(SerialAT)
 
@@ -87,12 +92,14 @@ previousStart = False
 dataReady = False
 audioReady = False
 
+failCounter_gsm = 0
+restartCounter_SW = 0
+
 # Sensor temperatura externa
 # Tipo sensor
 
 sensor = Adafruit_DHT.DHT22
 
-GPIO.setmode(GPIO.BOARD)
 
 # GPIO conectada
 pino_sensor = 23
@@ -209,8 +216,6 @@ def saveAudioToSD(buffer, timestamp, isLast):
 			file.write(msg + '/')
 
 def connection_gsm(gsmClient, apn, user, password):
-	if not gsmClient.restart():
-		return False
 	if not gsmClient.waitForNetwork():
 		return False
 	return gsmClient.gprsConnect(apn,user,password)
@@ -222,7 +227,8 @@ def connection_mqtt(mqttClient, user, password, broker):
 	return mqttClient.connect("CentralNode", user, password) 
 	
 def publish_MQTT(mqttClient, topic, file_source, file_temp):
-	
+	all_sent = True
+
 	with open(file_temp, "a") as file2:
 		with open(file_source, "r") as file:
 			count = 1
@@ -231,12 +237,14 @@ def publish_MQTT(mqttClient, topic, file_source, file_temp):
 					file2.write(line)
 				else:	
 					if not mqttClient.publish(topic,line.rstrip('\n')):
-						file2.write(line)		
+						file2.write(line)
+						all_sent = False		
 				count += 1
 				time.sleep(1)
 	os.remove(file_source)
 	os.rename(file_temp,file_source)
 
+	return all_sent
 def updateCounter(new_d_counter, new_a_counter):
 	with open("counter.txt","w") as file:
 		file.write(str(new_d_counter) + "," + str(new_a_counter)+ '\n')
@@ -250,13 +258,6 @@ while(1):
 	
 	startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
 	
-	if(not radio.isChipConnected()):
-		logger.error("Radio parou de responder")
-	if(radio.txFifoFull()):
-		logger.error("Radio TX FIFO cheia")
-	if(radio.rxFifoFull()):
-		logger.error("Radio RX FIFO cheia")
-
 	if(startReceived):
 		if(previousStart):
 			if len(bufferAudio)> 2:
@@ -300,14 +301,14 @@ while(1):
 	elif(dataReceived):
 		timestamp = getTimeStamp()
 
-		umid, temp = Adafruit_DHT.read_retry(sensor, pino_sensor)
+		#umid, temp = Adafruit_DHT.read_retry(sensor, pino_sensor)
 
-		if umid is not None and temp is not None:
-			bufferData.append(temp)
-			bufferData.append(umid)
-		else:
-			bufferData.append(0.0)
-			bufferData.append(0.0)
+		#if umid is not None and temp is not None:
+		#	bufferData.append(temp)
+		#	bufferData.append(umid)
+		#else:
+		bufferData.append(0.0)
+		bufferData.append(0.0)
 
 		if d_counter == MAX_COUNTER - 1:
 			saveDataToSD(bufferData, timestamp, True)
@@ -346,19 +347,51 @@ while(1):
 			audio_count += 1
 	
 	if audioReady and dataReady:
-		
+
+		send_ok = True
+				
 		if not connection_gsm(SerialAT,apn, user, password):
-			logger.error("Erro na conexão com rede gsm")			
+			logger.error("Erro na conexão com rede gsm")
+			send_ok = False
 		elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
 			logger.error("Erro na conexão com servidor MQTT")			
-		else:
-			publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt")
+			send_ok = False
+		elif not publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt"):
+			logger.error("Erro no envio dos dados via MQTT")
+			send_ok = False
 
 		if not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
 			logger.error("Erro na conexao com servidor MQTT")
-		else:
-			publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
+			send_ok = False
+
+		elif publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt"):
+			logger.error("Erro no envio dos audios via MQTT")
+			send_ok = False
+
 				
+		if not send_ok:
+			failCounter_gsm += 1
+			
+			if failCounter_gsm == 2
+				SerialAT.restart()
+				failCounter_gsm = 0
+
+				restartCounter_SW += 1
+			
+			if restartCounter_SW == 3:
+
+				#Hardware reset
+				GPIO.output(pino_rst, GPIO.LOW)
+				time.sleep(1)
+				GPIO.output(pino_rst, GPIO.HIGH)
+				
+				SerialAT.restart()
+				restartCounter_SW = 0
+
+		else:
+			failCounter_gsm = 0
+			restartCounter_SW = 0
+
 		
 		d_counter = 0
 		a_counter = 0
@@ -368,19 +401,13 @@ while(1):
 		updateCounter(a_counter, d_counter)
 
 		# NRF24L01 Reset
-		#octlit = lambda n:int(n,8)
-
-		#radio = RF24(RPI_GPIO_P1_22, RPI_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
-		#network = RF24Network(radio)
-		#this_node = octlit("00")
-
-		#radio.begin()
-		#time.sleep(0.1)
-		#radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
-		#radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
-		#radio.enableDynamicPayloads()
-		#network.begin(120, this_node)    # channel 120
-		#radio.printDetails()
+		radio.begin()
+		time.sleep(0.1)
+		radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
+		radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
+		radio.enableDynamicPayloads()
+		network.begin(120, this_node)    # channel 120
+		radio.printDetails()
 		
 		
 
