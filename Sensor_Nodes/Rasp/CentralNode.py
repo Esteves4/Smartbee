@@ -6,6 +6,7 @@ import RPi.GPIO as GPIO
 import time 
 import datetime 
 import os
+import sys
 import logging
 import logging.handlers
 import threading
@@ -270,14 +271,36 @@ def updateCounter(new_d_counter, new_a_counter):
 #Descomentar linha abaixo para atualizar data e hora pelo SIM800L
 #setRaspTimestamp(SerialAT, apn, user, password)
 
-while(1):
-	network.update()
-	
-	startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
-	
-	if(startReceived):
-		if(previousStart):
-			if len(bufferAudio)> 2:
+try:
+
+	while(1):
+		network.update()
+		
+		startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
+		
+		if(startReceived):
+			if(previousStart):
+				if len(bufferAudio)> 2:
+					if a_counter == 2:
+						saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
+						a_counter = 0
+						updateCounter(d_counter, a_counter)
+					else:
+						saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
+						a_counter += 1
+						updateCounter(d_counter, a_counter)
+
+					del bufferAudio[:]
+					audio_count = 0
+
+					if (dataReady):
+						audioReady = True
+
+				else:
+					previousStart = True
+
+		elif(stopReceived):
+			if len(bufferAudio) > 2:
 				if a_counter == 2:
 					saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
 					a_counter = 0
@@ -293,144 +316,128 @@ while(1):
 				if (dataReady):
 					audioReady = True
 
-			else:
-				previousStart = True
+			previousStart = False
 
-	elif(stopReceived):
-		if len(bufferAudio) > 2:
-			if a_counter == 2:
-				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
-				a_counter = 0
-				updateCounter(d_counter, a_counter)
-			else:
-				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)
-				a_counter += 1
-				updateCounter(d_counter, a_counter)
-
-			del bufferAudio[:]
-			audio_count = 0
-
-			if (dataReady):
-				audioReady = True
-
-		previousStart = False
-
-	elif(dataReceived):
-		timestamp = getTimeStamp()
-
-		#umid, temp = Adafruit_DHT.read_retry(sensor, pino_sensor)
-
-		#if umid is not None and temp is not None:
-		#	bufferData.append(temp)
-		#	bufferData.append(umid)
-		#else:
-		bufferData.append(0.0)
-		bufferData.append(0.0)
-
-		if d_counter == MAX_COUNTER - 1:
-			saveDataToSD(bufferData, timestamp, True)
-
-			dataReady = True
-	
-		else:
-			saveDataToSD(bufferData, timestamp, False)
-			d_counter += 1
-			updateCounter(d_counter, a_counter)
-
-	elif(audioReceived):
-		if(audio_count == 0):
+		elif(dataReceived):
 			timestamp = getTimeStamp()
-			bufferAudio.append(timestamp)
-			bufferAudio.extend(bufferData)
-		else:
-			bufferAudio.extend(bufferData[1:])
+
+			#umid, temp = Adafruit_DHT.read_retry(sensor, pino_sensor)
+
+			#if umid is not None and temp is not None:
+			#	bufferData.append(temp)
+			#	bufferData.append(umid)
+			#else:
+			bufferData.append(0.0)
+			bufferData.append(0.0)
+
+			if d_counter == MAX_COUNTER - 1:
+				saveDataToSD(bufferData, timestamp, True)
+
+				dataReady = True
 		
-		if(audio_count == MAX_AUDIO_COUNT - 1):
-			if a_counter == 2:
-				saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
-				a_counter = 0
-				updateCounter(d_counter, a_counter)		
 			else:
-				saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)			
-				a_counter += 1
-				updateCounter(d_counter, a_counter)		
-			del bufferAudio[:]	
+				saveDataToSD(bufferData, timestamp, False)
+				d_counter += 1
+				updateCounter(d_counter, a_counter)
+
+		elif(audioReceived):
+			if(audio_count == 0):
+				timestamp = getTimeStamp()
+				bufferAudio.append(timestamp)
+				bufferAudio.extend(bufferData)
+			else:
+				bufferAudio.extend(bufferData[1:])
 			
-			if(dataReady):
-				audioReady = True
-
-			audio_count = 0	
-		else:
-			audio_count += 1
-	
-	if audioReady and dataReady:
-
-		send_ok = True
+			if(audio_count == MAX_AUDIO_COUNT - 1):
+				if a_counter == 2:
+					saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
+					a_counter = 0
+					updateCounter(d_counter, a_counter)		
+				else:
+					saveAudioToSD(bufferAudio[1:], bufferAudio[0], False)			
+					a_counter += 1
+					updateCounter(d_counter, a_counter)		
+				del bufferAudio[:]	
 				
-		if not connection_gsm(SerialAT,apn, user, password):
-			logger.error("Erro na conexão com rede gsm")
-			send_ok = False
-		elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
-			logger.error("Erro na conexão com servidor MQTT")			
-			send_ok = False
-		elif not publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt"):
-			logger.error("Erro no envio dos dados via MQTT")
-			send_ok = False
+				if(dataReady):
+					audioReady = True
 
-		if not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
-			logger.error("Erro na conexao com servidor MQTT")
-			send_ok = False
+				audio_count = 0	
+			else:
+				audio_count += 1
+		
+		if audioReady and dataReady:
 
-		elif publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt"):
-			logger.error("Erro no envio dos audios via MQTT")
-			send_ok = False
+			send_ok = True
+					
+			if not connection_gsm(SerialAT,apn, user, password):
+				logger.error("Erro na conexão com rede gsm")
+				send_ok = False
+			elif not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
+				logger.error("Erro na conexão com servidor MQTT")			
+				send_ok = False
+			elif not publish_MQTT(mqtt, topic_data, "data_to_send/buffer_data.txt", "data_to_send/temp.txt"):
+				logger.error("Erro no envio dos dados via MQTT")
+				send_ok = False
 
+			if not connection_mqtt(mqtt, user_MQTT, pass_MQTT, broker):
+				logger.error("Erro na conexao com servidor MQTT")
+				send_ok = False
+
+			elif publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt"):
+				logger.error("Erro no envio dos audios via MQTT")
+				send_ok = False
+
+					
+			if not send_ok:
+				failCounter_gsm += 1
 				
-		if not send_ok:
-			failCounter_gsm += 1
-			
-			if failCounter_gsm == 2
-				SerialAT.restart()
+				if failCounter_gsm == 2
+					SerialAT.restart()
+					failCounter_gsm = 0
+
+					restartCounter_SW += 1
+				
+				if restartCounter_SW == 3:
+
+					#Hardware reset
+					GPIO.output(pino_rst, GPIO.LOW)
+					time.sleep(1)
+					GPIO.output(pino_rst, GPIO.HIGH)
+					
+					SerialAT.restart()
+					restartCounter_SW = 0
+
+			else:
 				failCounter_gsm = 0
-
-				restartCounter_SW += 1
-			
-			if restartCounter_SW == 3:
-
-				#Hardware reset
-				GPIO.output(pino_rst, GPIO.LOW)
-				time.sleep(1)
-				GPIO.output(pino_rst, GPIO.HIGH)
-				
-				SerialAT.restart()
 				restartCounter_SW = 0
 
-		else:
-			failCounter_gsm = 0
-			restartCounter_SW = 0
+			#if th is not None:
+			#	th.join()
 
-		#if th is not None:
-		#	th.join()
+			#th = threading.Thread(target=gsmSend)
+			#th.start()
+			
+			d_counter = 0
+			a_counter = 0
+			audio_count = 0
+			audioReady = False
+			dataReady = False
+			updateCounter(a_counter, d_counter)
 
-		#th = threading.Thread(target=gsmSend)
-		#th.start()
-		
-		d_counter = 0
-		a_counter = 0
-		audio_count = 0
-		audioReady = False
-		dataReady = False
-		updateCounter(a_counter, d_counter)
+			# NRF24L01 Reset
+			radio.begin()
+			time.sleep(0.1)
+			radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
+			radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
+			radio.enableDynamicPayloads()
+			network.begin(120, this_node)    # channel 120
+			radio.printDetails()
+			
+except KeyboardInterrupt:
+	GPIO.cleanup()
+	sys.exit()
 
-		# NRF24L01 Reset
-		radio.begin()
-		time.sleep(0.1)
-		radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
-		radio.setDataRate(RF24_1MBPS);                              # Set transmission rate
-		radio.enableDynamicPayloads()
-		network.begin(120, this_node)    # channel 120
-		radio.printDetails()
-		
-		
+	
 
 
