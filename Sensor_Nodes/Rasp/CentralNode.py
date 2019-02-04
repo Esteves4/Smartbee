@@ -392,14 +392,15 @@ try:
 			if not send_ok:
 				failCounter_gsm += 1
 				
-				if failCounter_gsm == 2
+				if failCounter_gsm == 2:
+					logger.warning("GSM reiniciado por Software!")
 					SerialAT.restart()
 					failCounter_gsm = 0
 
 					restartCounter_SW += 1
 				
 				if restartCounter_SW == 3:
-
+					logger.warning("GSM reiniciado por Hardware!")
 					#Hardware reset
 					GPIO.output(pino_rst, GPIO.LOW)
 					time.sleep(1)
@@ -436,6 +437,7 @@ try:
 			
 except KeyboardInterrupt:
 	GPIO.cleanup()
+	print("\nGoodbye!\n")
 	sys.exit()
 
 	
