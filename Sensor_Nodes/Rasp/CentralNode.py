@@ -94,8 +94,6 @@ previousStart = False
 dataReady = False
 audioReady = False
 
-failCounter_gsm = 0
-restartCounter_SW = 0
 
 th = None                                                    # GSM Thread
 
@@ -390,28 +388,17 @@ try:
 
 					
 			if not send_ok:
-				failCounter_gsm += 1
 				
-				if failCounter_gsm == 2:
-					logger.warning("GSM reiniciado por Software!")
-					SerialAT.restart()
-					failCounter_gsm = 0
+				logger.warning("GSM reiniciado por Software e Hardware!")
 
-					restartCounter_SW += 1
+				#Hardware reset
+				GPIO.output(pino_rst, GPIO.LOW)
+				time.sleep(1)
+				GPIO.output(pino_rst, GPIO.HIGH)
+				time.sleep(1)
+
+				SerialAT.restart()
 				
-				if restartCounter_SW == 3:
-					logger.warning("GSM reiniciado por Hardware!")
-					#Hardware reset
-					GPIO.output(pino_rst, GPIO.LOW)
-					time.sleep(1)
-					GPIO.output(pino_rst, GPIO.HIGH)
-					
-					SerialAT.restart()
-					restartCounter_SW = 0
-
-			else:
-				failCounter_gsm = 0
-				restartCounter_SW = 0
 
 			#if th is not None:
 			#	th.join()
