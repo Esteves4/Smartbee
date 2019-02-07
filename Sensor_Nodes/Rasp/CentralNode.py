@@ -6,7 +6,7 @@ import RPi.GPIO as GPIO
 import time 
 import datetime 
 import os
-import sys
+import sys, traceback
 import logging
 import logging.handlers
 import threading
@@ -414,6 +414,11 @@ try:
 			updateCounter(a_counter, d_counter)
 
 			# NRF24L01 Reset
+			del radio, network
+
+			radio = RF24(RPI_GPIO_P1_22, RPI_GPIO_P1_24, BCM2835_SPI_SPEED_8MHZ)
+			network = RF24Network(radio)
+			
 			radio.begin()
 			time.sleep(0.1)
 			radio.setPALevel(RF24_PA_HIGH);                                # Set Power Amplifier level
@@ -423,6 +428,7 @@ try:
 			radio.printDetails()
 			
 except KeyboardInterrupt:
+	traceback.print_exc(file=sys.stdout)
 	GPIO.cleanup()
 	print("\nGoodbye!\n")
 	sys.exit()

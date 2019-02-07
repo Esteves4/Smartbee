@@ -12,9 +12,9 @@ def zipFiles(path, timestamp, ident):
 	filename_txt = timestamp.strftime("%d_%m_%y")
 
 	if os.path.exists(path + filename_txt + ".txt"):
-		os.system("sudo tar -C " + path + " -zcvf " + "/srv/ftp/" + filename_tar + ".tar.gz ./" + filename_txt + ".txt --remove-files")
-	
+		os.system("sudo tar -C " + path + " -zcvf " + "/usr/share/nginx/html/dados/" + filename_tar + ".tar.gz ./" + filename_txt + ".txt --remove-files")
+
 timestamp = datetime.datetime.now()
 
-zipFiles("/home/pi/Documents/Smartbee/Sensor_Nodes/Rasp/data_collect/", timestamp, "data")
-zipFiles("/home/pi/Documents/Smartbee/Sensor_Nodes/Rasp/audio_collect/", timestamp, "audio")
+zipFiles("/home/bee/Smartbee/Sensor_Nodes/Rasp/data_collect/", timestamp, "data")
+zipFiles("/home/bee/Smartbee/Sensor_Nodes/Rasp/audio_collect/", timestamp, "audio")

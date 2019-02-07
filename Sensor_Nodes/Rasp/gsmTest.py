@@ -5,22 +5,22 @@ import RPi.GPIO as GPIO
 i = 0
 
 GPIO.setmode(GPIO.BOARD)
-GPIO.setup(11, GPIO.OUT, initial=GPIO.HIGH)
-time.sleep(10)
+#GPIO.setup(11, GPIO.OUT, initial=GPIO.HIGH)
+#time.sleep(10)
 
-gsm = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
-gsm.write("AT\r\n")
-time.sleep(5)
-print(gsm.read(gsm.in_waiting))
+#gsm = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
+#gsm.write("AT\r\n")
+#time.sleep(5)
+#print(gsm.read(gsm.in_waiting))
 
 
 while i < 100:
-	GPIO.output(11, GPIO.LOW)
-	time.sleep(3)
+	#GPIO.output(11, GPIO.LOW)
+	#time.sleep(3)
 	#GPIO.output(29, GPIO.HIGH)
 
-	#gsm = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
-	#time.sleep(5)
+	gsm = serial.Serial('/dev/ttyAMA0', 57600, timeout=5)
+	time.sleep(5)
 
 	gsm.write("AT\r\n")
 	time.sleep(5)
