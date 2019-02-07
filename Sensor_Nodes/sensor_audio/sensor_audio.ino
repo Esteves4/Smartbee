@@ -1,5 +1,6 @@
 #define SerialMon Serial                                                                          // Serial communication with the computer
 #define DEBUG                                                                                     // Comment this if you don't need to debug the arduino commands         
+#define TEMPO_ENTRE_CADA_LEITURA 300                              // Time between each reading in seconds  
 
 #include <Wire.h>           // Biblioteca para manipulação do protocolo I2C
 #include <RtcDS3231.h>      // Biblioteca para manipulação do DS3231
@@ -23,7 +24,6 @@ SdFatSoftSpi<SOFT_MISO_PIN, SOFT_MOSI_PIN, SOFT_SCK_PIN> SD;
 
 // File
 SdFile file;
-SdFile file2;
 
 //INITIAL CONFIGURATION OF RTC 
 RtcDS3231<TwoWire> Rtc(Wire);                                                                                       // Criação do objeto do tipo DS3231
@@ -34,36 +34,79 @@ RtcDS3231<TwoWire> Rtc(Wire);                                                   
 
 static MicrochipSRAM memory(SRAM_SS_PIN);
 
-struct payload_a {
-	char colmeia;
-	uint16_t audio[100];
-};
-
 char fileNameBuffer[22]; 
-char fileNameAudioBuffer[22];
-char formatBuffer[5];
 
-char audio_timestamp[20];
-RtcDateTime now_timestamp;
-
+/* Audio Variables */
 uint32_t strAddr = 0;
+uint16_t bufferADC;
+volatile uint8_t bufferADC_H;
+volatile uint8_t bufferADC_L;
 
-long previousMillis = 0;
-long interval = 10000; //(ms)
+#define audio_size 100
+#define sampleFragments 380
+uint16_t audioSamples[audio_size];
+
+volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
+
+uint16_t ADCSRA_BKP = 0;
+uint16_t ADCSRB_BKP = 0;
+
+/* Timestamp variables */
+RtcDateTime now_timestamp;
+char audio_timestamp[20];
 
 uint8_t dia, mes, hora, min, seg;
 uint16_t ano;
 
+/* Control Variables */
+bool goSleep = false;
+
 // PROTOTYPES OF FUNCTIONS - Force them to be after declarations
-void writeAudioSD(payload_a* tmp_pp, int seqNumber, RtcDateTime timestamp);
 RtcDateTime getTimestamp();
 
+
+void analogRead_freeRunnig(uint8_t pin){
+	if(pin < 0 || pin > 7){
+		return;
+	}
+
+	ADCSRA_BKP = ADCSRA;
+	ADCSRB_BKP = ADCSRB;
+
+	ADCSRA = 0;             // clear ADCSRA register
+	ADCSRB = 0;             // clear ADCSRB register
+
+	ADMUX |= (pin & 0x07);    // set A0 analog input pin
+	ADMUX |= (1 << REFS0);  // set reference voltage
+	ADCSRA |= (1 << ADPS2) | (1 << ADPS1);                     //  64 prescaler for 19.2 KHz
+
+	ADCSRA |= (1 << ADATE); // enable auto trigger
+	ADCSRA |= (1 << ADIE);  // enable interrupts when measurement complete
+	ADCSRA |= (1 << ADEN);  // enable ADC
+	ADCSRA |= (1 << ADSC);  // start ADC measurements
+
+}
+
+ISR(ADC_vect){
+	bufferADC_L = ADCL;
+	bufferADC_H = ADCH;  // read 8 bit value from ADC
+
+	interrupted = true;
+}
+
 void setup() { 
-	/* SIM800L, RTC configuration */
+
 #ifdef DEBUG
 	SerialMon.begin(57600);
 	delay(10);
+
+  /* SRAM configuration*/
+	if(memory.SRAMBytes==0){
+		SerialMon.println("ERRO SRAM");
+	}
 	
+	memory.clearMemory();
+
 	SerialMon.println(F("Initializing RTC and Configuring..."));
 
 	RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__);
@@ -115,7 +158,7 @@ void setup() {
 	SerialMon.flush();
 	SerialMon.end();
 #else
-  Rtc.Begin();
+	Rtc.Begin();
 	
 	RtcDateTime compiled = RtcDateTime(__DATE__, __TIME__); 
 	
@@ -148,8 +191,7 @@ void setup() {
 	}else{
 		SerialMon.println("Initialization done.");
 	}     
-	
-	
+  	
 	SerialMon.flush();
 	SerialMon.end();
 	
@@ -157,80 +199,129 @@ void setup() {
 	SD.begin(SD_CHIP_SELECT_PIN);
 #endif
 
+  /* ADC configuration*/ 
+	analogRead_freeRunnig(3);
+
 }
 
-void loop() {
+void loop() {       
+	if(interrupted){
 
-    /* Adds timestamp to payload received */
+		bufferADC = (bufferADC_H << 8)|bufferADC_L;
+		memory.put(strAddr, bufferADC);
+		strAddr += 2;
+		interrupted = false;
+
+	}else if(strAddr >= 76000){
+		ADCSRA = 0;             
+		ADCSRB = 0;
+
+		ADCSRA = ADCSRA_BKP;
+		ADCSRB = ADCSRB_BKP;
+
 		RtcDateTime now = getTimestamp();
-         
-    snprintf_P(ArrayPayloads[ArrayCount - 1].timestamp,
-    countof(ArrayPayloads[ArrayCount - 1].timestamp),
-    PSTR("%04u%02u%02u%02u%02u%02u"),
-    now.Year(),
-    now.Month(),
-    now.Day(),
-    now.Hour(),
-    now.Minute(),
-    now.Second());
 
+		uint16_t i = 0;
+    uint16_t countFragments = 0;
+    SerialMon.begin(57600);
+    SerialMon.println("Saving samples to SD");
+    		
+		for(uint32_t j = 0; j < 76000; j = j + 2){
+			memory.get(j, bufferADC);
 
+      audioSamples[i] = bufferADC;
+			++i;
+      
+      if(i == audio_size){
+        ++countFragments;
+        
+        if( countFragments == sampleFragments){
+          saveSamples(true, now);   
+        }else{
+          saveSamples(false, now);
+        }
+				        
+        i = 0;      
+			}
+			
 
+		}
+		goSleep = true;
+    strAddr = 0;
+    SerialMon.println("Done saving!");
+    Serial.flush();
+    Serial.end();
+	}else if(goSleep){
+		for(int i = 0; i < TEMPO_ENTRE_CADA_LEITURA; ++i){
+		  LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);          // Function to put the arduino in sleep mode
+	  }
+
+  	goSleep = false;
+    
+  	analogRead_freeRunnig(3);
+  }
+
+}
+
+String audioToString(){
+	String strResult = "";
+
+	for(int i = 0; i < countof(audioSamples); i++){
+		strResult += String(audioSamples[i]) + ",";
+	}
+
+	return strResult;
+}
+
+void saveSamples(bool isLast, RtcDateTime timestamp){
+
+	snprintf_P(fileNameBuffer,
+		countof(fileNameBuffer),
+		PSTR("%02u_%02u_%02u_A.txt"),
+		timestamp.Day(),
+		timestamp.Month(),
+		timestamp.Year());
+
+  /* Writes the payload data into the SD backup file */
+	String audioStr = audioToString();
+
+	if (!file.open(fileNameBuffer, FILE_WRITE)){
+		return;
+	} 
+
+	if(isLast){
+
+		snprintf_P(audio_timestamp,
+			countof(audio_timestamp),
+			PSTR("%04u%02u%02u%02u%02u%02u"),
+			timestamp.Year(),
+			timestamp.Month(),
+			timestamp.Day(),
+			timestamp.Hour(),
+			timestamp.Minute(),
+			timestamp.Second());
+
+		audioStr += String(audio_timestamp) + "\n";
+
+		file.print(audioStr);
+	}else{
+		file.print(audioStr);
+	}
+
+	file.close();  
 }
 
 RtcDateTime getTimestamp(){
   /* Gets the timestamp from RTC */
-    RtcDateTime timestamp;
-    
-    if (!Rtc.IsDateTimeValid()) {
-       //tmp_pp->erro_vec |= (1<<E_RTC);
-      //tmp_pp->erro_vec |= (1<<E_RTC);
+	RtcDateTime timestamp;
 
-      wakeGSM();                                                                                 // Wakes the gsm                                                            
-      delay(1000);
+	if (!Rtc.IsDateTimeValid()) {
+		timestamp = RtcDateTime(2000, 01, 01, 0, 0, 0);              
 
-      if (modem.testAT(5000L)) {
-        String gsmTime = modem.getGSMDateTime(DATE_FULL);
-        
-        gsmTime.remove(2,1);
-        gsmTime.remove(4,1);
-        gsmTime.remove(6,1);
-        gsmTime.remove(8,1);
-        gsmTime.remove(10,1);
-        gsmTime.remove(12);
-        gsmTime = "20" + gsmTime;
-              
-        ano = gsmTime.substring(0,4).toInt();
-        mes = gsmTime.substring(4,6).toInt();
-        dia = gsmTime.substring(6,8).toInt();
-        hora = gsmTime.substring(8,10).toInt();
-        min = gsmTime.substring(10,12).toInt();
-        seg = gsmTime.substring(12,14).toInt();
+	}else{
+		timestamp = Rtc.GetDateTime();
 
-        timestamp = RtcDateTime(ano, mes, dia, hora, min, seg);
-        
-      }else{
-        timestamp = RtcDateTime(2000, 01, 01, 0, 0, 0);              
-      }
-      
-      sleepGSM();
+	}
 
-    }else{
-      timestamp = Rtc.GetDateTime();
-    }
-
-    return timestamp;
-
-}
-
- 
-String payloadToString(payload_t* tmp_pp) {
-	int erros = tmp_pp->erro_vec - '\0';
-	
-	snprintf(formatBuffer,
-	countof(formatBuffer),
-	"%03d",
-	erros);
-	
-	return String(tmp_pp->colmeia) + "," + String(tmp_pp->temperatura) + "," + String(tmp_pp->umidade) + "," + String(tmp_pp->tensao_c) + "," + String(tmp_pp->tensao_r) + "," + String(tmp_pp->peso) + "," + String(tmp_pp->timestamp) + "," + String(formatBuffer);
+	return timestamp;
 }
