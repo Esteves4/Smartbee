@@ -1,3 +1,4 @@
+#!/usr/bin/python
 # coding=utf-8
 import GsmClient as gsm 
 import PubSubClient as MQTT 
@@ -425,7 +426,10 @@ except KeyboardInterrupt:
 	GPIO.cleanup()
 	print("\nGoodbye!\n")
 	sys.exit()
-
+except:
+	GPIO.cleanup()
+	logger.error(traceback.print_exc(file=sys.stdout))
+	sys.exit()
 	
 
 
