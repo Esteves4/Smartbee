@@ -1,10 +1,10 @@
 import serial
 import time
-import RPi.GPIO as GPIO
+#import RPi.GPIO as GPIO
 
 i = 0
 
-GPIO.setmode(GPIO.BOARD)
+#GPIO.setmode(GPIO.BOARD)
 #GPIO.setup(11, GPIO.OUT, initial=GPIO.HIGH)
 #time.sleep(10)
 
@@ -25,7 +25,6 @@ while i < 100:
 	gsm.write("AT\r\n")
 	time.sleep(5)
 	print(gsm.read(gsm.in_waiting))
-
 	gsm.write("AT+CFUN=1\r\n")
 	time.sleep(5)
 	print(gsm.read(gsm.in_waiting))
@@ -85,5 +84,5 @@ while i < 100:
 	gsm.write("AT+SAPBR=0,1\r\n")
 	time.sleep(5)
 	print(gsm.read(gsm.in_waiting))
-	
+
 	i = i + 1
