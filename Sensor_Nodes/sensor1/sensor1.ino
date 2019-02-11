@@ -14,7 +14,7 @@
 #include <MicrochipSRAM.h>  
 
 #define IDCOLMEIA 1                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 300                              // Time between each reading in seconds  
+#define TEMPO_ENTRE_CADA_LEITURA 300                            // Time between each reading in seconds  
 #define SENSOR "Sensor 1"                                       // Name of the sensor
 #define PORTADHT 6                                              // Activation pin of DHT
 #define DEBUG
