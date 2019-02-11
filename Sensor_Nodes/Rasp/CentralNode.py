@@ -382,7 +382,7 @@ try:
 				logger.error("Erro na conexao com servidor MQTT")
 				send_ok = False
 
-			elif publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt"):
+			elif not publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt"):
 				logger.error("Erro no envio dos audios via MQTT")
 				send_ok = False
 

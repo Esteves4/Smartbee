@@ -1,1 +1,1 @@
-0 0 * * * /usr/bin/python /home/bee/Smartbee/Sensor_Nodes/Rasp/zipfiles.py
+5 0 * * * /usr/bin/python /home/bee/Smartbee/Sensor_Nodes/Rasp/zipfiles.py
