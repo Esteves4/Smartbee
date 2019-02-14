@@ -135,7 +135,14 @@ void lerMQandKy() {
 /*Reads the voltage of the battery */
 void lerTensao() {
   // read the input on analog pin 0:
-  int sensorValue = analogRead(A2);
+  int sensorValue = 0;
+
+  for (byte i = 0; i < 10; i++) {
+    sensorValue += analogRead(SENSORTENSAO);
+  }
+
+  sensorValue = sensorValue / 10;
+
   // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
   tensao_lida = sensorValue * 0.00487586;
 } 
