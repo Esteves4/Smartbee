@@ -320,12 +320,12 @@ try:
 		elif(dataReceived):
 			timestamp = getTimeStamp()
 
-			#umid, temp = Adafruit_DHT.read_retry(sensor, pino_sensor)
+			umid, temp = Adafruit_DHT.read_retry(sensor=sensor, pin=pino_sensor, retries=1, delay_seconds=0.2)
 
-			#if umid is not None and temp is not None:
-			#	bufferData.append(temp)
-			#	bufferData.append(umid)
-			#else:
+			if umid is not None and temp is not None:
+				bufferData.append(temp)
+				bufferData.append(umid)
+			else:
 			bufferData.append(0.0)
 			bufferData.append(0.0)
 
