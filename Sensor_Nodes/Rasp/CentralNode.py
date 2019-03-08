@@ -326,8 +326,8 @@ try:
 				bufferData.append(temp)
 				bufferData.append(umid)
 			else:
-			bufferData.append(0.0)
-			bufferData.append(0.0)
+				bufferData.append(0.0)
+				bufferData.append(0.0)
 
 			if d_counter == MAX_COUNTER - 1:
 				saveDataToSD(bufferData, timestamp, True)
