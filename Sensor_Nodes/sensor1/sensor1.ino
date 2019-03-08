@@ -252,7 +252,7 @@ void loop() {
     Serial.flush();
     Serial.end();
     
-    delay(200);
+    delay(1000);
     bufferADC = 0;
 
     start = millis();
