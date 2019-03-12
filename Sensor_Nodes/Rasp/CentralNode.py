@@ -102,7 +102,11 @@ th = None                                                    # GSM Thread
 # Tipo sensor
 
 sensor = Adafruit_DHT.DHT22
+temp_ext = 0.0
+umid_ext = 0.0
 
+start_delay = 0
+reading_enable = True
 
 # GPIO conectada
 pino_sensor = 23
@@ -276,6 +280,7 @@ try:
 		startReceived, stopReceived, dataReceived, audioReceived, bufferData = receiveData()
 		
 		if(startReceived):
+			reading_enable = False
 			if(previousStart):
 				if len(bufferAudio)> 2:
 					if a_counter == 2:
@@ -297,6 +302,7 @@ try:
 					previousStart = True
 
 		elif(stopReceived):
+			reading_enable = True
 			if len(bufferAudio) > 2:
 				if a_counter == 2:
 					saveAudioToSD(bufferAudio[1:], bufferAudio[0], True)
@@ -318,15 +324,6 @@ try:
 		elif(dataReceived):
 			timestamp = getTimeStamp()
 
-			umid, temp = Adafruit_DHT.read_retry(sensor=sensor, pin=pino_sensor, retries=3, delay_seconds=0.1)
-
-			if umid is not None and temp is not None:
-				bufferData.append(temp)
-				bufferData.append(umid)
-			else:
-				bufferData.append(0.0)
-				bufferData.append(0.0)
-
 			if d_counter == MAX_COUNTER - 1:
 				saveDataToSD(bufferData, timestamp, True)
 
@@ -342,6 +339,7 @@ try:
 				timestamp = getTimeStamp()
 				bufferAudio.append(timestamp)
 				bufferAudio.extend(bufferData)
+				reading_enable = False
 			else:
 				bufferAudio.extend(bufferData[1:])
 			
@@ -359,9 +357,24 @@ try:
 				if(dataReady):
 					audioReady = True
 
-				audio_count = 0	
+				audio_count = 0
+				reading_enable = True
+
 			else:
 				audio_count += 1
+		else:
+			end_delay = time.time()
+
+			if(end_delay - start_delay > 10 and reading_enable):
+
+				umid, temp = Adafruit_DHT.read_retry(sensor=sensor, pin=pino_sensor)
+
+				if umid is not None and temp is not None:
+					umid_ext = umid
+					temp_ext = temp
+
+				start_delay = time.time()
+
 		
 		if audioReady and dataReady:
 
@@ -410,6 +423,7 @@ try:
 			audio_count = 0
 			audioReady = False
 			dataReady = False
+
 			updateCounter(a_counter, d_counter)
 
 			# NRF24L01 Reset
@@ -418,6 +432,7 @@ try:
 			network = RF24Network(radio)
 			network.begin(120, this_node)    # channel 120
 			radio.printDetails()
+			reading_enable = True
 			
 except KeyboardInterrupt:
 	traceback.print_exc(file=sys.stdout)
