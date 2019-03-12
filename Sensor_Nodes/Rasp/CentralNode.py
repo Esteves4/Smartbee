@@ -143,8 +143,6 @@ def gsmSend():
 		publish_MQTT(mqtt, topic_audio, "audio_to_send/buffer_audio.txt", "audio_to_send/temp.txt")
 
 def receiveData():
-	network.update()
-
 	if(network.available()):
 		header, payload = network.read(201)
 		
@@ -320,7 +318,7 @@ try:
 		elif(dataReceived):
 			timestamp = getTimeStamp()
 
-			umid, temp = Adafruit_DHT.read_retry(sensor=sensor, pin=pino_sensor, retries=1, delay_seconds=0.2)
+			umid, temp = Adafruit_DHT.read_retry(sensor=sensor, pin=pino_sensor, retries=3, delay_seconds=0.1)
 
 			if umid is not None and temp is not None:
 				bufferData.append(temp)
