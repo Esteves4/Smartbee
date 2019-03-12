@@ -324,6 +324,9 @@ try:
 		elif(dataReceived):
 			timestamp = getTimeStamp()
 
+			bufferData.append(temp_ext)
+			bufferData.append(umid_ext)
+			
 			if d_counter == MAX_COUNTER - 1:
 				saveDataToSD(bufferData, timestamp, True)
 
