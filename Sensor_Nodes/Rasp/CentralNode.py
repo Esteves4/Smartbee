@@ -370,7 +370,7 @@ try:
 
 			if(end_delay - start_delay > 10 and reading_enable):
 
-				umid, temp = Adafruit_DHT.read_retry(sensor=sensor, pin=pino_sensor)
+				umid, temp = Adafruit_DHT.read(sensor=sensor, pin=pino_sensor)
 
 				if umid is not None and temp is not None:
 					umid_ext = umid
