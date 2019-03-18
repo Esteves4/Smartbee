@@ -15,13 +15,15 @@
  
 #include <HX711.h>  //You must have this library in your arduino library folder
  
+
+//INITIAL CONFIGURATION OF HX711
 #define DOUT  3
 #define CLK  4
- 
+
 HX711 scale(DOUT, CLK);
  
 //Change this calibration factor as per your load cell once it is found you many need to vary it in thousands
-float calibration_factor = -21400; //-106600 worked for my 40Kg max scale setup 
+float calibration_factor = 42990; //-106600 worked for my 40Kg max scale setup 
  
 //=============================================================================================
 //                         SETUP
@@ -35,11 +37,11 @@ void setup() {
   Serial.println("Press z,x,c,v to decrease calibration factor by 10,100,1000,10000 respectively");
   Serial.println("Press t for tare");
   scale.set_scale();
-  scale.tare(); //Reset the scale to 0
- 
-  long zero_factor = scale.read_average(); //Get a baseline reading
+  
+  long zero_factor = scale.read_average(10); //Get a baseline reading
   Serial.print("Zero factor: "); //This can be used to remove the need to tare the scale. Useful in permanent scale projects.
   Serial.println(zero_factor);
+  scale.set_offset(zero_factor);
 }
  
 //=============================================================================================

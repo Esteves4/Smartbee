@@ -25,8 +25,8 @@
 
 HX711 scale(DOUT, CLK);
 
-float SCALE_FACTOR = -175400.00;                                // Change this value for your calibration factor found
-double offset = -60234.00;                                           // Set offset for the balance to work properly
+float SCALE_FACTOR = 42990.00;                                // Change this value for your calibration factor found
+double offset = 149252;                                           // Set offset for the balance to work properly
 
 //INITIAL CONFIGURATION OF DHT
 #define DHTPIN A1                                               // Pin DATA of the DHT sensor.
