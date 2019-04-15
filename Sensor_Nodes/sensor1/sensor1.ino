@@ -49,6 +49,7 @@ RF24Network network(radio);                                     // Network uses 
 const uint16_t id_origem = 01;                                  // Address of this node
 const uint16_t id_destino = 00;                                 // Addresses of the master node
 uint16_t count = 0;
+bool isFreeRunning = false;
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -61,7 +62,10 @@ struct payload_t {
 	char erro_vec;
 };
 
+
 #define audio_size 50
+#define SAMPLE_FRQ 19200
+#define MAX_ADDR 76800 //(SAMPLE_FRQ*4)
 
 struct payload_a {
   char colmeia;
@@ -197,7 +201,8 @@ void setup(void) {
 	delay(2000);
 	digitalWrite(PORTADHT, LOW);
 
-	/* ADC configuration*/ 
+	/* ADC configuration*/
+  isFreeRunning = true;
 	analogRead_freeRunnig(3);
 
 }
@@ -210,18 +215,23 @@ ISR(ADC_vect){
 }
 
 void loop() {
-	network.update();                                            // Check the network regularly
-      
-	if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
-		radio.flush_rx();
-	} else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
-		radio.flush_tx();
-	}
 
-	if(strAddr >= 76000){
+  if(!isFreeRunning && !sleep){
+
+    network.update();                                            // Check the network regularly
+      
+    if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
+      radio.flush_rx();
+    } else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
+      radio.flush_tx();
+    }
+    
+  }else if(strAddr >= MAX_ADDR){
 		/* Clears ADC previous configuration so we can use analogRead */
 		ADCSRA = 0;             
 		ADCSRB = 0;
+
+    isFreeRunning = false;
 
     ADCSRA = ADCSRA_BKP;
     ADCSRB = ADCSRB_BKP;
@@ -236,8 +246,8 @@ void loop() {
 		payload.erro_vec = '\0';
 
     lerTensao();
-		lerDHT();
-		lerPeso();
+		//lerDHT();
+		//lerPeso();
 
 		/* Turn off the sensors */
 		digitalWrite(PORTADHT, LOW);
@@ -258,10 +268,11 @@ void loop() {
     start = millis();
     uint8_t i = 0;
     
-		for(uint32_t j = 0; j < 76000; j = j + 2){
+		for(uint32_t j = 0; j < MAX_ADDR; j = j + 2){
       
 			memory.get(j, bufferADC);
       payload_audio.audio[i] = bufferADC;
+      
       ++i;
       if(i == audio_size){
         if( !enviarAudio() ){
@@ -307,6 +318,7 @@ void loop() {
 		Serial.end();
     
     sleep = false;
+    isFreeRunning = true;
 		analogRead_freeRunnig(3);
 	}
 
