@@ -49,6 +49,7 @@ RF24Network network(radio);                                     // Network uses 
 const uint16_t id_origem = 01;                                  // Address of this node
 const uint16_t id_destino = 00;                                 // Addresses of the master node
 uint16_t count = 0;
+bool isFreeRunning = false;
 
 //STRUCTURE OF OUR PAYLOAD
 struct payload_t {
@@ -61,7 +62,10 @@ struct payload_t {
 	char erro_vec;
 };
 
+
 #define audio_size 50
+#define SAMPLE_FRQ 19200
+#define MAX_ADDR 76800 //(SAMPLE_FRQ*4)
 
 struct payload_a {
   char colmeia;
@@ -197,7 +201,8 @@ void setup(void) {
 	delay(2000);
 	digitalWrite(PORTADHT, LOW);
 
-	/* ADC configuration*/ 
+	/* ADC configuration*/
+  isFreeRunning = true;
 	analogRead_freeRunnig(3);
 
 }
@@ -210,18 +215,28 @@ ISR(ADC_vect){
 }
 
 void loop() {
-	network.update();                                            // Check the network regularly
-      
-	if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
-		radio.flush_rx();
-	} else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
-		radio.flush_tx();
-	}
 
-	if(strAddr >= 76000){
+  if(interrupted){
+    bufferADC = (bufferADC_H << 8)|bufferADC_L;
+    memory.put(strAddr, bufferADC);
+    strAddr += 2;
+    interrupted = false;
+  }else if(!isFreeRunning && !sleep){
+
+    network.update();                                            // Check the network regularly
+      
+    if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
+      radio.flush_rx();
+    } else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
+      radio.flush_tx();
+    }
+    
+  }else if(strAddr >= MAX_ADDR){
 		/* Clears ADC previous configuration so we can use analogRead */
 		ADCSRA = 0;             
 		ADCSRB = 0;
+
+    isFreeRunning = false;
 
     ADCSRA = ADCSRA_BKP;
     ADCSRB = ADCSRB_BKP;
@@ -258,10 +273,11 @@ void loop() {
     start = millis();
     uint8_t i = 0;
     
-		for(uint32_t j = 0; j < 76000; j = j + 2){
+		for(uint32_t j = 0; j < MAX_ADDR; j = j + 2){
       
 			memory.get(j, bufferADC);
       payload_audio.audio[i] = bufferADC;
+      
       ++i;
       if(i == audio_size){
         if( !enviarAudio() ){
@@ -283,11 +299,6 @@ void loop() {
     enviarSTOP();
 		
    
-	}else if(interrupted){
-		bufferADC = (bufferADC_H << 8)|bufferADC_L;
-		memory.put(strAddr, bufferADC);
-		strAddr += 2;
-		interrupted = false;
 	}else if(sleep){
 		Serial.begin(57600);                                                         
 		Serial.println(F("Sleeping..."));
@@ -307,6 +318,7 @@ void loop() {
 		Serial.end();
     
     sleep = false;
+    isFreeRunning = true;
 		analogRead_freeRunnig(3);
 	}
 
@@ -423,8 +435,10 @@ bool enviarAudio() {
 }
 
 void lerPeso(){
+  scale.power_up();
+  
 	peso_lido = scale.get_units(10);
-
+  
 	if(peso_lido < 0){
 		if(peso_lido < -0.100){
 			payload.erro_vec |= (1<<E_PESO);
@@ -432,8 +446,10 @@ void lerPeso(){
 		peso_lido = 0;
 	}
 
+  scale.power_down();
+
 	Serial.begin(57600);
-	Serial.print("Weight: ");
+	Serial.print("#Weight: ");
 	Serial.print(peso_lido, 3);                                // Up to 3 decimal points
 	Serial.println(" kg");                                        // Change this to kg and re-adjust the calibration factor if you follow lbs
 	Serial.flush();
