@@ -58,43 +58,6 @@ MAX_COUNTER = 12
 MAX_AUDIO_COUNT = 760
 
 
-def receive_data(network_obj):
-    """
-    This function checks if any message was received through nRF24L01
-
-    Args:
-        network_obj (RF24Network): An object of the RF24Network class
-
-    Returns:
-        tuple:
-            False, False, True, False, buffer_return, when data from sensors is received
-            False, False, False, True, buffer_return, when audio from sensors is received
-            True, False, False, False, [0], when a start byte is received
-            False, True, False, False, [0], when a stop byte is received
-            False, False, False, False, [0], when nothing happens
-
-    """
-    if network_obj.available():
-        header, payload = network_obj.read(201)
-
-        if header.type == 68:
-            buffer_return = list(unpack('<b5fb', bytes(payload)))
-            return False, False, True, False, buffer_return
-
-        if header.type == 65:
-            buffer_return = list(unpack('<b50H', bytes(payload)))
-            return False, False, False, True, buffer_return
-
-        if header.type == 83:
-            print("START")
-            return True, False, False, False, [0]
-
-        if header.type == 115:
-            print("STOP")
-            return False, True, False, False, [0]
-
-    return False, False, False, False, [0]
-
 def set_rasp_timestamp(gsm_client, network_apn, network_user, network_password):
     """
     This function gets timestamp from gsm network and updates the Raspbian timestamp
@@ -190,6 +153,20 @@ def save_data_to_sd(buffer, data_timestamp, is_last):
         data_file.write(msg)
 
 def save_audio_to_sd(buffer, audio_timestamp, is_last):
+    """
+    This function saves the audio received in two txt file, the first as a backup and the second
+    as a buffer to send to the webservice
+
+    Args:
+        buffer          (list): A list with the data received
+        audio_timestamp (datetime): A datetime object with the updated timestamp
+        is_last         (bool): A flag informing if this is the last audio sample to be saved in
+                                the same line
+
+    Returns:
+        No returns
+
+    """
     buffer.append(audio_timestamp.strftime("%Y%m%d%H%M%S"))
 
     msg = to_string(buffer)
@@ -212,17 +189,57 @@ def save_audio_to_sd(buffer, audio_timestamp, is_last):
             audio_file.write(msg + '/')
 
 def connection_gsm(gsm_client, network_apn, network_user, network_password):
+    """
+    This function waits for the network to be available and opens a gprs connection
+
+    Args:
+        gsm_client      (GsmClient): An object of the GsmClient class
+        network_apn        (string): The network apn
+        network_user       (string): The network user
+        network_password   (string): The network password
+
+    Returns:
+        bool: True if successful, False otherwise.
+
+    """
     if not gsm_client.waitForNetwork():
         return False
     return gsm_client.gprsConnect(network_apn, network_user, network_password)
 
 def connection_mqtt(mqtt_client, mqtt_user, mqtt_password, mqtt_broker):
+    """
+    This function opens a connection with the MQTT Broker
+
+    Args:
+        mqtt_client  (PubSubClient): An object of the PubSubClient class
+        mqtt_user          (string): The mqtt connection's user
+        mqtt_password      (string): The mqtt connection's password
+        mqtt_broker        (string): The MQTT broker's IP address
+
+    Returns:
+        bool: True if successful, False otherwise.
+
+    """
 
     mqtt_client.setServer(mqtt_broker, 1883)
 
     return mqtt_client.connect("CentralNode", mqtt_user, mqtt_password)
 
 def publish_mqtt(mqtt_client, mqtt_topic, file_source, file_temp):
+    """
+    This function publishes the data from the file_sorce to the specified topic
+
+    Args:
+        mqtt_client  (PubSubClient): An object of the PubSubClient class
+        mqtt_topic         (string): The topic to be used
+        file_source        (string): The file where the data is saved
+        file_temp          (string): A temporary file to hold the data that weren't sent
+
+    Returns:
+        bool: True if successful, False if a failure occurred.
+
+    """
+
     all_sent = True
 
     with open(file_temp, "a") as backup_file:
@@ -243,11 +260,17 @@ def publish_mqtt(mqtt_client, mqtt_topic, file_source, file_temp):
 
     return all_sent
 
-def update_counter(new_d_counter, new_a_counter):
-    with open("counter.txt", "w") as counter_file:
-        counter_file.write(str(new_d_counter) + "," + str(new_a_counter)+ '\n')
-
 def configure_log(logger_name):
+    """
+    This function configures a log object
+
+    Args:
+        logger_name      (string): A name for the log file
+
+    Returns:
+        object: The log object created
+
+    """
     # Create logger
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.DEBUG)
@@ -268,12 +291,36 @@ def configure_log(logger_name):
     return logger
 
 def configure_sim800(port, baudrate, reset_pin):
+    """
+    This function configures the SIM800L module
+
+    Args:
+        port              (string): The serial port where the module is connected
+        baudrate         (integer): The baudrate used
+        reset_pin        (integer): The GPIO pin connected in the RST pin of the module
+
+
+    Returns:
+        GsmClient: The GsmClient object created
+
+    """
     GPIO.setmode(GPIO.BOARD)
     GPIO.setup(reset_pin, GPIO.OUT, initial=GPIO.HIGH)
 
     return gsm.GsmClient(port, baudrate)
 
 def configure_radio_rf24(ce_pin=RPI_GPIO_P1_22, csn_pin=RPI_GPIO_P1_24):
+    """
+    This function configures RF24 module
+
+    Args:
+        ce_pin    (integer): The GPIO pin connected in the CE pin of the module
+        csn_pin   (integer): The GPIO pin connected in the CSN pin of the module
+
+    Returns:
+        RF24: The RF24 object created
+
+    """
     radio = RF24(ce_pin, csn_pin, BCM2835_SPI_SPEED_8MHZ)
 
     radio.begin()
@@ -285,6 +332,17 @@ def configure_radio_rf24(ce_pin=RPI_GPIO_P1_22, csn_pin=RPI_GPIO_P1_24):
     return radio
 
 def configure_network_rf24(radio_client, channel=120):
+    """
+    This function configures the network layer of the RF24 module
+
+    Args:
+        radio_client    (RF24): An object of the RF24 class
+        channel      (integer): The channel where the network is going to run
+
+    Returns:
+        RF24Network: The RF24Network object created
+
+    """
     # NRF24L01 Configuration
     octlit = lambda n: int(n, 8)
     this_node = octlit("00")
@@ -294,7 +352,57 @@ def configure_network_rf24(radio_client, channel=120):
 
     return network
 
+def receive_data(network_obj):
+    """
+    This function checks if any message was received through nRF24L01
+
+    Args:
+        network_obj (RF24Network): An object of the RF24Network class
+
+    Returns:
+        tuple:
+            False, False, True, False, buffer_return, when data from sensors is received
+            False, False, False, True, buffer_return, when audio from sensors is received
+            True, False, False, False, [0], when a start byte is received
+            False, True, False, False, [0], when a stop byte is received
+            False, False, False, False, [0], when nothing happens
+
+    """
+    if network_obj.available():
+        header, payload = network_obj.read(201)
+
+        if header.type == 68:
+            buffer_return = list(unpack('<b5fb', bytes(payload)))
+            return False, False, True, False, buffer_return
+
+        if header.type == 65:
+            buffer_return = list(unpack('<b50H', bytes(payload)))
+            return False, False, False, True, buffer_return
+
+        if header.type == 83:
+            print("START")
+            return True, False, False, False, [0]
+
+        if header.type == 115:
+            print("STOP")
+            return False, True, False, False, [0]
+
+    return False, False, False, False, [0]
+
 def check_start_stop_received(start_stop_flags, state, payload):
+    """
+    This function checks if a stop or a start byte were received,
+    updates the state variables and treats transmission errors of the audio payload
+
+    Args:
+        start_stop_flags       (list): A list with two boolean objects, the start and the stop flags
+        state            (dictionary): The state variables dictionary
+        payload          (dictionary): The payload variables dictionary
+
+    Returns:
+        No returns
+
+    """
 
     start_received, stop_received = start_stop_flags
 
@@ -351,6 +459,20 @@ def check_start_stop_received(start_stop_flags, state, payload):
         state["previous_start"] = False
 
 def check_payload_received(data_audio_flags, buffer_payload, state, payload):
+    """
+    This function checks if a payload were received and saves the payload in the SD card
+
+    Args:
+        data_audio_flags       (list): A list with two boolean objects,
+                                       the data and the audio received flags
+        buffer_payload         (list): The payload received
+        state            (dictionary): The state variables dictionary
+        payload          (dictionary): The payload variables dictionary
+
+    Returns:
+        No returns
+
+    """
     data_received, audio_received = data_audio_flags
 
     if data_received:
@@ -406,6 +528,13 @@ def check_payload_received(data_audio_flags, buffer_payload, state, payload):
             state["audio_count"] += 1
 
 def check_dirs():
+    """
+    This function checks and creates the directories and files that are needed.
+
+    Returns:
+        No returns
+
+    """
     if not os.path.exists("data_collect/"):
         os.makedirs("data_collect/")
     if not os.path.exists("data_to_send/"):
@@ -416,11 +545,39 @@ def check_dirs():
     if not os.path.exists("audio_to_send/"):
         os.makedirs("audio_to_send/")
 
+    if not os.path.exists("log/"):
+        os.makedirs("log/")
+
     if not os.path.exists("counter.txt"):
         with open("counter.txt", "w") as file:
             file.write(str(0) + ","+str(0) + '\n')
 
+def update_counter(new_d_counter, new_a_counter):
+    """
+    This function saves the counters of the amount of payload (data and audio) received in a file
+
+    Args:
+        new_d_counter  (integer): The new data counter
+        new_a_counter  (integer): The new audio counter
+
+    Returns:
+        No returns
+
+    """
+    with open("counter.txt", "w") as counter_file:
+        counter_file.write(str(new_d_counter) + "," + str(new_a_counter)+ '\n')
+
 def get_counter(state):
+    """
+    This function gets the counters of the amount of payload (data and audio) received from the file
+
+    Args:
+        state            (dictionary): The state variables dictionary
+
+    Returns:
+        No returns
+
+    """
     with open("counter.txt", "r") as file:
         line = file.readline()
         line = line.split(",")
@@ -428,6 +585,19 @@ def get_counter(state):
         state["a_counter"] = int(line[1])
 
 def update_external_readings(state, payload, sensor, pin):
+    """
+    This function reads the temperature and the humidity from sensor and updates the state variables
+
+    Args:
+        state            (dictionary): The state variables dictionary
+        payload          (dictionary): The payload variables dictionary
+        sensor         (Adafruit_DHT): The Adafruit_DHT reference for the sensor used
+        pin                 (integer): The GPIO pin where the sensor is connected
+
+    Returns:
+        No returns
+
+    """
     end_delay = time.time()
 
     if(end_delay - state["start_delay"] > 10 and state["reading_enable"]):
@@ -441,6 +611,19 @@ def update_external_readings(state, payload, sensor, pin):
         state["start_delay"] = time.time()
 
 def send_to_webserice(gsm_client, mqtt, gsm_config, mqtt_config, logger):
+    """
+    This function sends the data and audio collected to the web service
+
+    Args:
+        gsm_client         (GsmClient): An object of the GsmClient class
+        mqtt            (PubSubClient): An object of the PubSubClient class
+        mqtt_config       (dictionary): A dictionary with all the mqtt's configuration
+        logger               (logging): An object of the logging class
+
+    Returns:
+        bool: True if successful, False otherwise.
+
+    """
     send_ok = True
 
     data_buffer_path = "data_to_send/buffer_data.txt"
@@ -469,6 +652,17 @@ def send_to_webserice(gsm_client, mqtt, gsm_config, mqtt_config, logger):
     return send_ok
 
 def reset_gsm(gsm_client, config):
+    """
+    This function resets the sim800l module
+
+    Args:
+        gsm_client         (GsmClient): An object of the GsmClient class
+        config            (dictionary): A dictionary with all the sim800l module configuration
+
+    Returns:
+        No returns
+
+    """
     #Hardware reset
     GPIO.output(config["pin_rst"], GPIO.LOW)
     time.sleep(1)
@@ -477,7 +671,18 @@ def reset_gsm(gsm_client, config):
 
     gsm_client.restart()
 
-def update_state_variables(state):
+def reset_state_variables(state):
+    """
+    This function resets the state variables
+
+    Args:
+        state            (dictionary): The state variables dictionary
+
+    Returns:
+        No returns
+
+    """
+
     state["d_counter"] = 0
     state["a_counter"] = 0
     state["audio_count"] = 0
@@ -487,6 +692,9 @@ def update_state_variables(state):
 
 
 def main():
+    """
+    This is the main function, where the magic happens
+    """
     #Descomentar linha abaixo para atualizar data e hora pelo SIM800L
     #set_rasp_timestamp(serial_at, GSM_CONFIG["apn"], GSM_CONFIG["user"], GSM_CONFIG["pass"])
 
@@ -533,7 +741,7 @@ def main():
                     logger.warning("GSM reiniciado por Software e Hardware!")
                     reset_gsm(serial_at, GSM_CONFIG)
 
-                update_state_variables(state_variables)
+                reset_state_variables(state_variables)
 
                 update_counter(state_variables["a_counter"], state_variables["d_counter"])
 
