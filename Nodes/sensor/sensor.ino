@@ -1,76 +1,35 @@
+// ### INCLUDES ###
 #include <LowPower.h>
-
 #include <RF24Network.h>
 #include <RF24Network_config.h>
 #include <Sync.h>
-
 #include <nRF24L01.h>
 #include <RF24.h>
 #include <SPI.h>
 #include <DHT.h>
 
-#include <HX711.h>                                              // You must have this library in your arduino library folder
+#include <HX711.h>
 
-#include <MicrochipSRAM.h>  
+#include <MicrochipSRAM.h>
 
-#define IDCOLMEIA 1                                             // ID of the Hive monitored
-#define TEMPO_ENTRE_CADA_LEITURA 300                            // Time between each reading in seconds  
-#define SENSOR "Sensor 1"                                       // Name of the sensor
-#define PORTADHT 6                                              // Activation pin of DHT
+// ### DEFINES ###
+#define IDCOLMEIA 1
+#define TEMPO_ENTRE_CADA_LEITURA 300
+#define SENSOR "Sensor 1"
+#define PORTADHT 6
 #define DEBUG
 
-//INITIAL CONFIGURATION OF HX711
 #define DOUT  3
 #define CLK  4
 
-HX711 scale(DOUT, CLK);
+#define DHTPIN A1
+#define DHTTYPE DHT22
 
-float SCALE_FACTOR = 42990.00;                                // Change this value for your calibration factor found
-double offset = 149252;                                           // Set offset for the balance to work properly
-
-//INITIAL CONFIGURATION OF DHT
-#define DHTPIN A1                                               // Pin DATA of the DHT sensor.
-#define DHTTYPE DHT22                                           // Sets the type of DHT utilized, DHT 22
-
-DHT dht(DHTPIN, DHTTYPE);                                       // Object of the temperature sensor
-
-//INITIAL CONFIGURATION OF 23LC1024 - SRAM
 #define SRAM_SS_PIN 7
-
-static MicrochipSRAM memory(SRAM_SS_PIN);
-
-//INITIAL CONFIGURATION OF NRF24L01
-const int pinCE = 8;                                            // This pin is used to set the nRF24 to standby (0) or active mode (1)
-const int pinCSN = 9;                                           // This pin is used to tell the nRF24 whether the SPI communication is a command or message to send out
-
-RF24 radio(pinCE, pinCSN);                                      // nRF24L01(+) radio attached using Getting Started board
-RF24Network network(radio);                                     // Network uses that radio
-
-const uint16_t id_origem = 01;                                  // Address of this node
-const uint16_t id_destino = 00;                                 // Addresses of the master node
-uint16_t count = 0;
-bool isFreeRunning = false;
-
-//STRUCTURE OF OUR PAYLOAD
-struct payload_t {
-	char colmeia;
-	float temperatura;
-	float umidade;
-	float tensao_c;
-	float tensao_r;
-	float peso;
-	char erro_vec;
-};
-
 
 #define audio_size 50
 #define SAMPLE_FRQ 19200
 #define MAX_ADDR 76800 //(SAMPLE_FRQ*4)
-
-struct payload_a {
-  char colmeia;
-  uint16_t audio[audio_size];
-};
 
 #define E_DHT   0
 #define E_TEN_C 1
@@ -80,23 +39,45 @@ struct payload_a {
 #define E_SD    5
 #define E_SRAM  6
 
+// ### CONST ###
+float SCALE_FACTOR = 42990.00;
+double offset = 149252;
+
+const int pinCE = 8;
+const int pinCSN = 9;
+
+const uint16_t sourceID = 01;
+const uint16_t destinationID = 00;
+
+int VOLTAGE_PIN = A2;
+
+// ### GLOBAL VARIABLES ###
+uint16_t count = 0;
+bool isFreeRunning = false;
+
+struct payload_t {
+  char hive;
+  float temperature;
+  float humidity;
+  float voltage_h;
+  float voltage_r;
+  float weight;
+  char erro_vec;
+};
+
+struct payload_a {
+  char hive;
+  uint16_t audio[audio_size];
+};
+
 payload_t payload;
-payload_a payload_audio;   
+payload_a audioPayload;
 
-/* Variables that hold our readings */
-float temperatura_lida = 0;
-float umidade_lida = 0;
-float co2_lido = 0;
-float som_lido = 0;
-float tensao_lida = 0;
-float peso_lido = 0;
+float temperatureReading = 0;
+float humidityReading = 0;
+float voltageReading = 0;
+float weightReading = 0;
 
-/* Analogic ports for reading */
-int SENSORSOM = A3;
-int SENSORTENSAO = A2;
-//int SENSORCO2 = A4;
-
-/* Audio Variables */
 uint32_t strAddr = 0;
 uint16_t bufferADC;
 volatile uint8_t bufferADC_H;
@@ -104,189 +85,334 @@ volatile uint8_t bufferADC_L;
 unsigned long start;
 unsigned long end;
 
-volatile bool interrupted = false;                           // Variable to know if a interruption ocurred or not
+volatile bool interrupted = false;
 bool sleep = false;
 
-uint16_t ADCSRA_BKP = 0;
-uint16_t ADCSRB_BKP = 0;
+uint16_t adcsraBackup = 0;
+uint16_t adcsrbBackup = 0;
+
+// ### OBJECTS ###
+HX711 scale(DOUT, CLK);
+
+//INITIAL CONFIGURATION OF DHT
+DHT dht(DHTPIN, DHTTYPE);
+
+//INITIAL CONFIGURATION OF 23LC1024 - SRAM
+static MicrochipSRAM memory(SRAM_SS_PIN);
+
+//INITIAL CONFIGURATION OF NRF24L01
+RF24 radio(pinCE,pinCSN);
+
+RF24Network network(radio);
+
 /* Reads the temperature and the humidity from DHT sensor */
-void lerDHT() {
-	if (isnan(dht.readTemperature())) {
-		payload.erro_vec |= (1<<E_DHT);
-		temperatura_lida = 0;
-	}
+void readDHT() {
+  if (isnan(dht.readTemperature())) {
+    payload.erro_vec |= (1 << E_DHT);
+    temperatureReading = 0;
+  } else {
+    temperatureReading = dht.readTemperature();
+  }
 
-	else {
-		temperatura_lida = dht.readTemperature();
-	}
-
-	if (isnan(dht.readHumidity())) {
-		payload.erro_vec |= (1<<E_DHT);
-		umidade_lida = 0;
-	}
-
-	else {
-		umidade_lida = dht.readHumidity();
-	}
-}
-
-/* Reads the sound */
-void lerMQandKy() {
-	som_lido = analogRead(SENSORSOM);
-	co2_lido = 0;
+  if (isnan(dht.readHumidity())) {
+    payload.erro_vec |= (1 << E_DHT);
+    humidityReading = 0;
+  } else {
+    humidityReading = dht.readHumidity();
+  }
 }
 
 /*Reads the voltage of the battery */
-void lerTensao() {
-  // read the input on analog pin 0:
+void readVoltage() {
+// read the input on analog pin 0:
   int sensorValue = 0;
 
   for (byte i = 0; i < 10; i++) {
-    sensorValue += analogRead(SENSORTENSAO);
+    sensorValue += analogRead(VOLTAGE_PIN);
   }
 
   sensorValue = sensorValue / 10;
 
-  // Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
-  tensao_lida = sensorValue * 0.00487586;
-} 
+// Convert the analog reading (which goes from 0 - 1023) to a voltage (0 - 5V):
+  voltageReading = sensorValue * 0.00487586;
+}
 
-void analogRead_freeRunnig(uint8_t pin){
-	if(pin < 0 || pin > 7){
-		return;
-	}
+void readWeight() {
+  scale.power_up();
 
-  ADCSRA_BKP = ADCSRA;
-  ADCSRB_BKP = ADCSRB;
-  
-	ADCSRA = 0;             // clear ADCSRA register
-	ADCSRB = 0;             // clear ADCSRB register
-	ADMUX |= (pin & 0x07);    // set A0 analog input pin
-	ADMUX |= (1 << REFS0);  // set reference voltage
-	ADCSRA |= (1 << ADPS2) | (1 << ADPS1);                     //  64 prescaler for 19.2 KHz
+  weightReading = scale.get_units(10);
 
-	ADCSRA |= (1 << ADATE); // enable auto trigger
-	ADCSRA |= (1 << ADIE);  // enable interrupts when measurement complete
-	ADCSRA |= (1 << ADEN);  // enable ADC
-	ADCSRA |= (1 << ADSC);  // start ADC measurements
+  if (weightReading < 0) {
+    if (weightReading < -0.100) {
+      payload.erro_vec |= (1 << E_PESO);
+    }
+    weightReading = 0;
+  }
 
+  scale.power_down();
+
+  Serial.begin(57600);
+  Serial.print("#Weight: ");
+  Serial.print(weightReading, 3);
+  Serial.println(" kg");
+  Serial.flush();
+  Serial.end();
+}
+
+void analogRead_freeRunnig(uint8_t pin) {
+  if (pin < 0 || pin > 7) {
+    return;
+  }
+
+  adcsraBackup = ADCSRA;
+  adcsrbBackup = ADCSRB;
+
+// clear ADCSRA register
+  ADCSRA = 0;
+// clear ADCSRB register        
+  ADCSRB = 0;             
+// set A0 analog input pin
+  ADMUX |= (pin & 0x07); 
+// set reference voltage 
+  ADMUX |= (1 << REFS0);  
+//  64 prescaler for 19.2 KHz
+  ADCSRA |= (1 << ADPS2) | (1 << ADPS1);                     
+
+// enable auto trigger
+  ADCSRA |= (1 << ADATE); 
+// enable interrupts when measurement complete
+  ADCSRA |= (1 << ADIE);  
+// enable ADC
+  ADCSRA |= (1 << ADEN);  
+// start ADC measurements
+  ADCSRA |= (1 << ADSC);  
+}
+
+bool sendSTART() {
+  RF24NetworkHeader header(destinationID, 'S');
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+
+/* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do {
+    radio.flush_tx();
+    sent = network.write(header, "1", sizeof("1"));
+
+  } while (!sent && (end_a - start_a) < 300);
+
+
+  return sent;
+}
+
+bool sendSTOP() {
+  RF24NetworkHeader header(destinationID, 's');
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+
+/* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do {
+    radio.flush_tx();
+    sent = network.write(header, "1", sizeof("1"));
+
+  } while (!sent && (end_a - start_a) < 300);
+
+
+  return sent;
+}
+
+bool sendData() {
+  RF24NetworkHeader header(destinationID, 'D');
+
+/* Create the payload with the collected readings */
+  payload.hive = IDCOLMEIA;
+  payload.temperature = temperatureReading;
+  payload.humidity = humidityReading;
+  payload.voltage_h = voltageReading;
+  payload.voltage_r = 0;
+  payload.weight = weightReading;
+
+  ++count;
+  if (count == 13) {
+    count = 1;
+  }
+
+  Serial.begin(57600);
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+
+/* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+  do {
+    radio.flush_tx();
+    sent = network.write(header, &payload, sizeof(payload));
+
+  } while (!sent && (end_a - start_a) < 300);
+
+  if (!sent) {
+    Serial.println("Pacote audio não enviado: ");
+  }
+
+
+  Serial.println(count);
+  Serial.println(sizeof(payload));
+  Serial.flush();
+  Serial.end();
+
+  return sent;
+}
+
+bool sendAudio() {
+  RF24NetworkHeader header(destinationID, 'A');
+
+/* Create the payload with the collected readings */
+  audioPayload.hive = IDCOLMEIA;
+
+  Serial.begin(57600);
+/* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
+
+  unsigned long start_a = millis();
+  unsigned long end_a;
+  bool sent = false;
+  int sent_c = 0;
+
+  do {
+    radio.flush_tx();
+    sent = network.write(header, &audioPayload, sizeof(audioPayload));
+    end_a = millis();
+    ++sent_c;
+
+  } while (!sent && (end_a - start_a) < 300);
+
+  if (!sent) {
+    Serial.println("Pacote audio não enviado: ");
+  }
+  Serial.println(sent_c);
+  Serial.flush();
+  Serial.end();
+
+  return sent;
+}
+
+ISR(ADC_vect){
+  bufferADC_L = ADCL;
+  bufferADC_H = ADCH;
+
+  interrupted = true;
 }
 
 void setup(void) {
 
-	/* SRAM configuration*/
-	if(memory.SRAMBytes==0){
-		payload.erro_vec |= (1<<E_SRAM);
-	}
+  /* SRAM configuration*/
+  if (memory.SRAMBytes == 0) {
+    payload.erro_vec |= (1 << E_SRAM);
+  }
 
   memory.clearMemory();
 
-	/* nRF24L01 configuration*/ 
-	//SPI.begin();                                                // Start SPI protocol
-	radio.begin();                                                // Start nRF24L01
-	radio.maskIRQ(1, 1, 0);                                       // Create a interruption mask to only generate interruptions when receive payloads
-	radio.setPayloadSize(32);                                     // Set payload Size
-	radio.setPALevel(RF24_PA_HIGH);                                // Set Power Amplifier level
-	radio.setDataRate(RF24_1MBPS);                              // Set transmission rate
-	network.begin(/*channel*/ 120, /*node address*/ id_origem);   // Start the network
+  /* nRF24L01 configuration*/
+  SPI.begin();
+  radio.begin();
+  // Create a interruption mask to only generate interruptions when receive payloads
+  radio.maskIRQ(1, 1,0);
+  radio.setPayloadSize(32);
+  radio.setPALevel(RF24_PA_HIGH);
+  radio.setDataRate(RF24_1MBPS);
+  network.begin(/*channel*/ 120, /*node address*/ sourceID);
 
-	/* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
-	pinMode(PORTADHT, OUTPUT);
-	digitalWrite(PORTADHT, HIGH);
+  /* Sensors pins configuration. Sets the activation pins as OUTPUT and write LOW  */
+  pinMode(PORTADHT, OUTPUT);
+  digitalWrite(PORTADHT, HIGH);
 
-	/* HX711 configuration*/
-	scale.set_scale(SCALE_FACTOR);
-	scale.set_offset(offset);
-	
-	delay(2000);
-	digitalWrite(PORTADHT, LOW);
+  /* HX711 configuration*/
+  scale.set_scale(SCALE_FACTOR);
+  scale.set_offset(offset);
 
-	/* ADC configuration*/
+  delay(2000);
+  digitalWrite(PORTADHT, LOW);
+
+  /* ADC configuration*/
   isFreeRunning = true;
-	analogRead_freeRunnig(3);
+  analogRead_freeRunnig(3);
 
-}
-
-ISR(ADC_vect){
-	bufferADC_L = ADCL;
-	bufferADC_H = ADCH;  // read 8 bit value from ADC
-
-	interrupted = true;
 }
 
 void loop() {
 
-  if(interrupted){
-    bufferADC = (bufferADC_H << 8)|bufferADC_L;
+  if (interrupted) {
+    bufferADC = (bufferADC_H << 8) | bufferADC_L;
     memory.put(strAddr, bufferADC);
     strAddr += 2;
     interrupted = false;
-  }else if(!isFreeRunning && !sleep){
+  } else if (!isFreeRunning && !sleep) {
 
-    network.update();                                            // Check the network regularly
-      
-    if (radio.rxFifoFull()) {                                    // If the RX FIFO is full, the RX FIFO is cleared
+    network.update();
+
+    if (radio.rxFifoFull()) {
       radio.flush_rx();
-    } else if (radio.txFifoFull()) {                             // If the TX FIFO is full, the TX FIFO is cleared
+    } else if (radio.txFifoFull()) {
       radio.flush_tx();
     }
-    
-  }else if(strAddr >= MAX_ADDR){
-		/* Clears ADC previous configuration so we can use analogRead */
-		ADCSRA = 0;             
-		ADCSRB = 0;
+
+  } else if (strAddr >= MAX_ADDR) {
+/* Clears ADC previous configuration so we can use analogRead */
+    ADCSRA = 0;
+    ADCSRB = 0;
 
     isFreeRunning = false;
 
-    ADCSRA = ADCSRA_BKP;
-    ADCSRB = ADCSRB_BKP;
+    ADCSRA = adcsraBackup;
+    ADCSRB = adcsrbBackup;
 
-		strAddr = 0;
+    strAddr = 0;
 
-		/* Turn on the sensors */
-		digitalWrite(PORTADHT, HIGH);
-		delay(200);
+/* Turn on the sensors */
+    digitalWrite(PORTADHT, HIGH);
+    delay(200);
 
-		/* Performs the readings */
-		payload.erro_vec = '\0';
+/* Performs the readings */
+    payload.erro_vec = '\0';
 
-    lerTensao();
-		lerDHT();
-		lerPeso();
+    readVoltage();
+    readDHT();
+    readWeight();
 
-		/* Turn off the sensors */
-		digitalWrite(PORTADHT, LOW);
+/* Turn off the sensors */
+    digitalWrite(PORTADHT, LOW);
 
-    enviarSTART();
+    sendSTART();
     delay(500);
-    
-    enviarDados();                                              // Sends the data to the gateway
+
+    sendData();
 
     Serial.begin(57600);
     Serial.println("DONE");
     Serial.flush();
     Serial.end();
-    
+
     delay(1000);
     bufferADC = 0;
 
     start = millis();
     uint8_t i = 0;
-    
-		for(uint32_t j = 0; j < MAX_ADDR; j = j + 2){
-      
-			memory.get(j, bufferADC);
-      payload_audio.audio[i] = bufferADC;
-      
+
+    for (uint32_t j = 0; j < MAX_ADDR; j = j + 2) {
+
+      memory.get(j, bufferADC);
+      audioPayload.audio[i] = bufferADC;
+
       ++i;
-      if(i == audio_size){
-        if( !enviarAudio() ){
-          //break;
+      if (i == audio_size) {
+        if (!sendAudio()) {
+//break;
         }
         i = 0;
       }
-			
-		}
+
+    }
     end = millis();
     Serial.begin(57600);
     Serial.print(end - start);
@@ -296,163 +422,29 @@ void loop() {
     sleep = true;
 
     delay(500);
-    enviarSTOP();
-		
-   
-	}else if(sleep){
-		Serial.begin(57600);                                                         
-		Serial.println(F("Sleeping..."));
-		Serial.flush();
-		Serial.end();
-		
-		radio.powerDown();                                           // Calls the function to power down the nRF24L01
-		
-		for(int i = 0; i < TEMPO_ENTRE_CADA_LEITURA; ++i){
-			LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);          // Function to put the arduino in sleep mode
-		}
-		
-		radio.powerUp();                                             // Calls the function to power up the nRF24L01
-		Serial.begin(57600);                                                         
-		Serial.println(F("Waking..."));
-		Serial.flush();
-		Serial.end();
-    
+    sendSTOP();
+
+
+  } else if (sleep) {
+    Serial.begin(57600);
+    Serial.println(F("Sleeping..."));
+    Serial.flush();
+    Serial.end();
+
+    radio.powerDown();
+
+    for (int i = 0; i < TEMPO_ENTRE_CADA_LEITURA; ++i) {
+      LowPower.powerDown(SLEEP_1S, ADC_OFF, BOD_OFF);
+    }
+
+    radio.powerUp();
+    Serial.begin(57600);
+    Serial.println(F("Waking..."));
+    Serial.flush();
+    Serial.end();
+
     sleep = false;
     isFreeRunning = true;
-		analogRead_freeRunnig(3);
-	}
-
-}
-
-bool enviarSTART(){
-  RF24NetworkHeader header(id_destino, 'S');                   // Sets the header of the payload   
-
-  unsigned long start_a = millis();
-  unsigned long end_a;
-  bool sent = false;
-  
-  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-  do{
-    radio.flush_tx();
-    sent = network.write(header, "1", sizeof("1"));
-
-  }while(!sent && (end_a - start_a) < 300);
-
- 
-   return sent;
-}
-
-
-bool enviarSTOP(){
-  RF24NetworkHeader header(id_destino, 's');                   // Sets the header of the payload   
-
-  unsigned long start_a = millis();
-  unsigned long end_a;
-  bool sent = false;
-  
-  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-  do{
-    radio.flush_tx();
-    sent = network.write(header, "1", sizeof("1"));
-
-  }while(!sent && (end_a - start_a) < 300);
-
- 
-   return sent;
-}
-
-bool enviarDados() {
-	RF24NetworkHeader header(id_destino, 'D');                   // Sets the header of the payload   
-
-	/* Create the payload with the collected readings */                            
-	payload.colmeia = IDCOLMEIA;
-	payload.temperatura = temperatura_lida;
-	payload.umidade = umidade_lida;
-	payload.tensao_c = tensao_lida;
-	payload.tensao_r = 0;
-	payload.peso = peso_lido;
-
-	++count;
-	if(count == 13){
-		count = 1;
-	}
-
-  Serial.begin(57600);
-  unsigned long start_a = millis();
-  unsigned long end_a;
-  bool sent = false;
-  
-  /* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-  do{
-    radio.flush_tx();
-    sent = network.write(header, &payload, sizeof(payload));
-
-  }while(!sent && (end_a - start_a) < 300);
- 
-  if (!sent) { 
-    Serial.println("Pacote audio não enviado: ");
+    analogRead_freeRunnig(3);
   }
-  
-  
-	Serial.println(count);
-	Serial.println(sizeof(payload));
-	Serial.flush();
-	Serial.end(); 
-  
-  return sent;
-}
-
-bool enviarAudio() {
-	RF24NetworkHeader header(id_destino, 'A');                   // Sets the header of the payload   
-
-	/* Create the payload with the collected readings */                            
-	payload_audio.colmeia = IDCOLMEIA;
-
-	Serial.begin(57600);
-	/* Sends the data collected to the gateway, if delivery fails let the user know over serial monitor */
-	
-	unsigned long start_a = millis();
-  unsigned long end_a;
-  bool sent = false;
-  int sent_c = 0;
-
-  do{
-    radio.flush_tx();
-    sent = network.write(header, &payload_audio, sizeof(payload_audio));
-    end_a = millis();
-    ++sent_c;
-    
-  }while(!sent && (end_a - start_a) < 300);
- 
-	if (!sent) { 
-		Serial.println("Pacote audio não enviado: ");
-	}
-  Serial.println(sent_c);
-	Serial.flush();
-	Serial.end(); 
-  
-  return sent;
-}
-
-void lerPeso(){
-  scale.power_up();
-  
-	peso_lido = scale.get_units(10);
-  
-	if(peso_lido < 0){
-		if(peso_lido < -0.100){
-			payload.erro_vec |= (1<<E_PESO);
-		}
-		peso_lido = 0;
-	}
-
-  scale.power_down();
-
-	Serial.begin(57600);
-	Serial.print("#Weight: ");
-	Serial.print(peso_lido, 3);                                // Up to 3 decimal points
-	Serial.println(" kg");                                        // Change this to kg and re-adjust the calibration factor if you follow lbs
-	Serial.flush();
-	Serial.end();
-
 }
