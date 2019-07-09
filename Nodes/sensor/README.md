@@ -36,10 +36,55 @@ The steps to get the project up and running:
 #### Step 2: Install the hardware on arduino
 
    1. Connecting DHT22 on sensor node
+   
+      | DHT22 PIN  | Arduino PIN | Notes |
+      | :-------------: | :-------------: | :-------------: |
+      | 1. VCC | 5V |
+      | 2. DADOS  | A1  |
+      | 3. N.C  | - |
+      | 4. GND | GND  |
+      
    2. Connecting the microfone on sensor node
+   
+      | Microfone PIN  | Arduino PIN | Notes |
+      | :-------------: | :-------------: | :-------------: |
+      | 1. AUDIO | A3 |
+      | 2. ENVELOPE  | -  |
+      | 3. GATE  | - |
+      | 4. GND | + Battery  |
+      | 5. GND | - Battery  |
+      
    3. Connection the load sensors on HX711
+   
+      | Load Sensor | HX711 PIN | Notes |
+      | :-------------: | :-------------: | :-------------: |
+      | 1. AUDIO | A3 |
+      | 2. ENVELOPE  | -  |
+      | 3. GATE  | - |
+      | 4. VCC | + Battery  |
+      | 5. GND | - Battery  |
+      
    4. Connecting the HX711 on sensor node
+   
+      | HX711 PIN  | Arduino PIN | Notes |
+      | :-------------: | :-------------: | :-------------: |
+      | 1. GND | GND |
+      | 2. DT/DOUT  | D3  |
+      | 3. SCK/CLK  | D4 |
+      | 4. VCC | 5V  |
+   
    5. Connecting nRF24L01 on sensor node
+   
+      | nRF24L01 PIN  | Arduino PIN | Notes |
+      | :-------------: | :-------------: | :-------------: |
+      | 1. GND | GND |
+      | 2. VCC  | 3.3V  |
+      | 3. CE  | D8 |
+      | 4. CSN | D9  |
+      | 5. SCK | D5  |
+      | 6. MOSI | D10  |
+      | 7. MISO | D2  |
+      | 8. IRQ | -  |
 
 ## Authors
 
