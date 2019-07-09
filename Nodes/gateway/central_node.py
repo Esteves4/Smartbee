@@ -428,8 +428,8 @@ def check_start_stop_received(start_stop_flags, state, payload):
                 del audio_buffer[:]
                 state["audio_count"] = 0
 
-                if state["dataReady"]:
-                    state["audioReady"] = True
+                if state["data_ready"]:
+                    state["audio_ready"] = True
 
             else:
                 state["previous_start"] = True
@@ -453,8 +453,8 @@ def check_start_stop_received(start_stop_flags, state, payload):
             del audio_buffer[:]
             state["audio_count"] = 0
 
-            if state["dataReady"]:
-                state["audioReady"] = True
+            if state["data_ready"]:
+                state["audio_ready"] = True
 
         state["previous_start"] = False
 
