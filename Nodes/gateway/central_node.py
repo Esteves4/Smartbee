@@ -55,7 +55,7 @@ SENSOR = Adafruit_DHT.DHT22
 SENSOR_PIN = 23
 
 MAX_COUNTER = 12
-MAX_AUDIO_COUNT = 760
+MAX_AUDIO_COUNT = 768
 
 
 def set_rasp_timestamp(gsm_client, network_apn, network_user, network_password):

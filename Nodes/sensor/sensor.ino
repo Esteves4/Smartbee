@@ -246,7 +246,7 @@ bool send(T payload, uint8_t type) {
     sent = network.write(header, &payload, sizeof(payload));
     end_a = millis();
     ++sent_c;
-  } while (!sent && (end_a - start_a) < 300);
+  } while (!sent && (end_a - start_a) < 500);
 
   if (!sent) {
     Serial.println("Pacote não enviado");
