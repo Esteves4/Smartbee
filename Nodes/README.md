@@ -15,7 +15,7 @@ RF transceiver/receiver: ... nRF24L01
 ### Libraries
 
 You can find them [here](Bibliotecas).
-```
+
 - [RF24Network](https://github.com/nRF24/RF24Network)
 - [RF24](https://github.com/nRF24/RF24)
 - [DigitalIO](https://github.com/greiman/DigitalIO)
@@ -23,7 +23,6 @@ You can find them [here](Bibliotecas).
 - [HX711](https://github.com/bogde/HX711)
 - [Low Power](https://github.com/rocketscream/Low-Power)
 - [SRAM](https://github.com/SV-Zanshin/MicrochipSRAM)
-```
 
 ### Installing
 
