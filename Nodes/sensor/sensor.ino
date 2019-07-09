@@ -65,6 +65,10 @@ static const uint8_t CHANNEL = 120;
 static const uint16_t SOURCE_ID = 01;
 static const uint16_t DEST_ID = 00;
 
+#define SOFT_SPI_MISO_PIN 2
+#define SOFT_SPI_MOSI_PIN 10
+#define SOFT_SPI_SCK_PIN 5
+
 // ----- Structs -----
 
 struct data_t {
