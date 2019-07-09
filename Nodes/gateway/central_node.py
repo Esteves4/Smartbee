@@ -406,7 +406,7 @@ def check_start_stop_received(start_stop_flags, state, payload):
 
     start_received, stop_received = start_stop_flags
 
-    audio_buffer = payload["audio_buffer"]
+    audio_buffer = payload["buffer_audio"]
 
     if start_received:
         state["reading_enable"] = False
@@ -492,7 +492,7 @@ def check_payload_received(data_audio_flags, buffer_payload, state, payload):
             update_counter(state["d_counter"], state["a_counter"])
 
     elif audio_received:
-        audio_buffer = payload["audio_buffer"]
+        audio_buffer = payload["buffer_audio"]
 
         if state["audio_count"] == 0:
             timestamp = get_timestamp()
