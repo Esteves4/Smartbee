@@ -89,10 +89,7 @@ audio_t audioPayload;
 uint32_t start;
 uint32_t end;
 
-bool sleep = false;
-
 // * Audio variables *
-bool flagFreeRunning = false;
 volatile bool interrupted = false;
 volatile uint8_t bufferHigh;
 volatile uint8_t bufferLow;
@@ -202,7 +199,9 @@ void analogRead_freeRunnig(uint8_t pin) {
   ADCSRA |= (1 << ADEN);
   // start ADC measurements
   ADCSRA |= (1 << ADSC);
-
+  
+  memAddr = 0;
+  
   while (memAddr < MAX_ADDR) {
     if (interrupted) {
       bufferADC = (bufferHigh << 8) | bufferLow;
@@ -220,8 +219,6 @@ void analogRead_freeRunnig(uint8_t pin) {
   // Restore the backup of the registers
   ADCSRA = adcsraBackup;
   ADCSRB = adcsrbBackup;
-
-  flagFreeRunning = false;
 }
 
 // Sends a payload to the central node, where type can be:
@@ -312,11 +309,12 @@ void setup(void) {
   scale.set_scale(SCALE_FACTOR);
   scale.set_offset(offset);
 
-  // Start sampling audio
-  analogRead_freeRunnig(3);
+
 }
 
 void loop() {
+
+  // Updates the nRF24 network and clears the RX/TX's queue
   network.update();
 
   if (radio.rxFifoFull()) {
@@ -325,80 +323,78 @@ void loop() {
     radio.flush_tx();
   }
 
-  if (memAddr >= MAX_ADDR) {
-    // Collect the data from sensors
-    dataPayload = collectData();
+  // Start sampling audio
+  analogRead_freeRunnig(3);
+  
+  // Collect the data from sensors
+  dataPayload = collectData();
 
-    Serial.begin(57600);
-    Serial.println("START");
-    Serial.end();
-    // Send START flag
-    send('1', 'S');
+  Serial.begin(57600);
+  Serial.println("START");
+  Serial.end();
+  
+  // Send START flag
+  send('1', 'S');
 
-    delay(500);
+  delay(500);
 
-    // Send the collected data from sensors
-    send(dataPayload, 'D');
+  // Send the collected data from sensors
+  send(dataPayload, 'D');
 
-    delay(1000);
+  delay(1000);
 
-    bufferADC = 0;
-    uint8_t i = 0;
-    bool sent = false;
-    start = millis();
+  bufferADC = 0;
+  uint8_t i = 0;
+  bool sent = false;
+  start = millis();
 
-    // Send the collected audio samples
-    for (uint32_t j = 0; j < MAX_ADDR; j = j + 2) {
-      memory.get(j, bufferADC);
-      audioPayload.audio[i] = bufferADC;
+  // Send the collected audio samples
+  for (uint32_t j = 0; j < MAX_ADDR; j = j + 2) {
+    memory.get(j, bufferADC);
+    audioPayload.audio[i] = bufferADC;
 
-      ++i;
-      if (i == AUDIO_PAYLOAD_SIZE) {
-        sent = send(audioPayload, 'A');
-        if (!sent) {
-          // break;
-        }
-        i = 0;
+    ++i;
+    if (i == AUDIO_PAYLOAD_SIZE) {
+      sent = send(audioPayload, 'A');
+      if (!sent) {
+        // break;
       }
+      i = 0;
     }
-
-    end = millis();
-
-    Serial.begin(57600);
-    Serial.print(end - start);
-    Serial.println(" milisegundos");
-    Serial.flush();
-    Serial.end();
-
-    sleep = true;
-    memAddr = 0;
-
-    delay(500);
-
-    // Send STOP flag
-    send('1', 's');
-    Serial.begin(57600);
-    Serial.println("STOP");
-    Serial.end();
-  } else if (sleep) {
-    Serial.begin(57600);
-    Serial.println(F("Sleeping..."));
-    Serial.flush();
-    Serial.end();
-
-    radio.powerDown();
-
-    for (int i = 0; i < TIME_READINGS; ++i) {
-      LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
-    }
-
-    radio.powerUp();
-    Serial.begin(57600);
-    Serial.println(F("Waking..."));
-    Serial.flush();
-    Serial.end();
-
-    sleep = false;
-    analogRead_freeRunnig(3);
   }
+
+  end = millis();
+
+  Serial.begin(57600);
+  Serial.print(end - start);
+  Serial.println(" milisegundos");
+  Serial.flush();
+  Serial.end();
+
+  delay(500);
+
+  // Send STOP flag
+  send('1', 's');
+  Serial.begin(57600);
+  Serial.println("STOP");
+  Serial.end();
+
+  // Start process of powering down the arduino 
+  // to reduce the power consumption
+  Serial.begin(57600);
+  Serial.println(F("Sleeping..."));
+  Serial.flush();
+  Serial.end();
+
+  radio.powerDown();
+
+  for (int i = 0; i < TIME_READINGS; ++i) {
+    LowPower.powerDown(SLEEP_8S, ADC_OFF, BOD_OFF);
+  }
+
+  radio.powerUp();
+  Serial.begin(57600);
+  Serial.println(F("Waking..."));
+  Serial.flush();
+  Serial.end();
 }
