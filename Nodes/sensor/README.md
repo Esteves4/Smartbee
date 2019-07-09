@@ -14,7 +14,7 @@ RF transceiver/receiver: ... nRF24L01
 
 ### Libraries
 
-You can find them [here](../libraries) or download the updated version:
+You can find them [here](libraries) or download the updated version:
 
 - [RF24Network](https://github.com/nRF24/RF24Network)
 - [RF24](https://github.com/nRF24/RF24)
