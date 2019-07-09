@@ -85,6 +85,11 @@ The steps to get the project up and running:
       | 7. MISO | D2  |
       | 8. IRQ | -  |
 
+#### Step 3: Upload the arduino sketch
+   1. Open the arduino IDE
+   2. Open the sensor sketch 
+   3. Upload the sketch to Arduino nano
+
 ## Authors
 
 * **Lucas Esteves Rocha** - [Esteves4](https://github.com/Esteves4)
