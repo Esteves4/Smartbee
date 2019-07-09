@@ -698,6 +698,8 @@ def main():
     #Descomentar linha abaixo para atualizar data e hora pelo SIM800L
     #set_rasp_timestamp(serial_at, GSM_CONFIG["apn"], GSM_CONFIG["user"], GSM_CONFIG["pass"])
 
+    check_dirs()
+
     logger = configure_log("CentralNode-logger")
 
     serial_at = configure_sim800('/dev/ttyAMA0', 57600, GSM_CONFIG["pin_rst"])
@@ -716,8 +718,6 @@ def main():
                        "previous_start": False, "data_ready": False, "audio_ready": False}
 
     payload_variables = {"temp_ext": 0.0, "umid_ext": 0.0, "buffer_audio":[]}
-
-    check_dirs()
 
     get_counter(state_variables)
 
