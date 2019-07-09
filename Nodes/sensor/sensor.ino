@@ -103,7 +103,7 @@ uint32_t memAddr = 0;
 // ----- OBJECTS -----
 
 // * HX711 Object *
-HX711 scale(DOUT, CLK);
+HX711 scale;
 
 // * DHT22 Object *
 DHT dht(DHT_PIN, DHT_TYPE);
@@ -154,9 +154,14 @@ float readVoltage() {
 // Reads the weight of the hive
 float readWeight() {
   scale.power_up();
-
-  float weightReading = scale.get_units(10);
-
+  float weightReading;
+  
+  if (scale.wait_ready_timeout(1000)) {
+    weightReading = scale.get_units(10);
+  } else {
+    weightReading = -1.0;
+  }
+  
   if (weightReading < 0) {
     if (weightReading < -0.100) {
       dataPayload.erro_vec |= (1 << E_PESO);
@@ -306,10 +311,9 @@ void setup(void) {
   digitalWrite(SENSORS_PWR, LOW);
 
   // HX711 configuration
+  scale.begin(DOUT, CLK);
   scale.set_scale(SCALE_FACTOR);
   scale.set_offset(offset);
-
-
 }
 
 void loop() {
