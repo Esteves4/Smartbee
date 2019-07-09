@@ -3,10 +3,10 @@ The main objective of this project is to describe the behavior of bees in health
 
 ## Getting Started
 
-If you want to know how to assemble the sensor nodes, go [here](Sensor_Nodes).
+If you want to know how to assemble the sensor nodes, go [here](Nodes/sensor).
 
 
-If you want to know how to assemble the scale, go [here](Scale).
+If you want to know how to assemble the gateway, go [here](Nodes/gateway).
 
 
 ## License

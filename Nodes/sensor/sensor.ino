@@ -51,6 +51,7 @@ static const uint8_t DHT_TYPE = DHT11;
 static const uint8_t SRAM_SS_PIN = 7;
 
 // * AUDIO Config *
+static const uint8_t AUDIO_PIN = A3;
 static const uint8_t AUDIO_PAYLOAD_SIZE = 50;
 static const uint32_t SAMPLE_FRQ = 19200;
 static const uint32_t MAX_ADDR = SAMPLE_FRQ * 4;
@@ -63,6 +64,10 @@ static const uint8_t CHANNEL = 120;
 
 static const uint16_t SOURCE_ID = 01;
 static const uint16_t DEST_ID = 00;
+
+#define SOFT_SPI_MISO_PIN 2
+#define SOFT_SPI_MOSI_PIN 10
+#define SOFT_SPI_SCK_PIN 5
 
 // ----- Structs -----
 
@@ -328,7 +333,7 @@ void loop() {
   }
 
   // Start sampling audio
-  analogRead_freeRunnig(3);
+  analogRead_freeRunnig(AUDIO_PIN);
   
   // Collect the data from sensors
   dataPayload = collectData();
