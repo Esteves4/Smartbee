@@ -58,11 +58,10 @@ The steps to get the project up and running:
    
       | Load Sensor | HX711 PIN | Notes |
       | :-------------: | :-------------: | :-------------: |
-      | 1. AUDIO | A3 |
-      | 2. ENVELOPE  | -  |
-      | 3. GATE  | - |
-      | 4. VCC | + Battery  |
-      | 5. GND | - Battery  |
+      | 1. RED WIRE | E+ |
+      | 2. BLACK WIRE  | E-  |
+      | 3. GREEN WIRE | A-  |
+      | 4. YELLOW WIRE  | A+ |
       
    4. Connecting the HX711 on sensor node
    
