@@ -23,8 +23,8 @@ import logging.handlers
 
 from struct import unpack
 
-import GsmClient as gsm
-import PubSubClient as MQTT
+import libraries.GsmClient as gsm
+import libraries.PubSubClient as MQTT
 import Adafruit_DHT
 import RPi.GPIO as GPIO
 
