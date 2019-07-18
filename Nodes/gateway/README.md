@@ -1,14 +1,12 @@
 ## Getting Started
 
-These instructions will get you a copy of the project up and running on your arduino for development and testing purposes.
+These instructions will get you a copy of the project up and running on your Raspberry Pi for development and testing purposes.
 
 ### Prerequisites
 
 ```
-The Arduino IDE
-
-Microcontroller: ........... Arduino nano
-Sensors: ................... DHT22, Microfone, Load Sensors, HX711
+Raspberry Pi + Raspbian (version: 9 stretch were used)
+Sensors: ................... DHT22
 RF transceiver/receiver: ... nRF24L01
 ```
 
@@ -18,11 +16,8 @@ You can find them [here](libraries) or download the updated version:
 
 - [RF24Network](https://github.com/nRF24/RF24Network)
 - [RF24](https://github.com/nRF24/RF24)
-- [DigitalIO](https://github.com/greiman/DigitalIO)
-- [DHT-sensor](https://github.com/adafruit/DHT-sensor-library)
-- [HX711](https://github.com/bogde/HX711)
-- [Low Power](https://github.com/rocketscream/Low-Power)
-- [SRAM](https://github.com/SV-Zanshin/MicrochipSRAM)
+- [Adafruit_DHT](https://github.com/adafruit/Adafruit_Python_DHT)
+- [RPi.GPIO](https://pypi.org/project/RPi.GPIO/)
 
 ### Installing
 
