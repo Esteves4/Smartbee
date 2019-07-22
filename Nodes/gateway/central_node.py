@@ -758,7 +758,7 @@ def main():
         sys.exit()
     except:
         GPIO.cleanup()
-        logger.error(traceback.print_exc(file=sys.stdout))
+        logger.error(traceback.format_exc())
         sys.exit()
 
 if __name__ == '__main__':
