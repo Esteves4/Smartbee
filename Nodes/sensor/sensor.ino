@@ -123,21 +123,38 @@ RF24Network network(radio);
 
 // Reads the temperature from DHT sensor
 float readTemperature() {
-  if (isnan(dht.readTemperature())) {
+
+  float reading = dht.readTemperature();
+  uint32_t startTemp = millis();
+  uint32_t timeout = 2500;
+
+  while(isnan(reading) && millis() - startTemp < timeout){
+    reading = dht.readTemperature();
+  }
+  
+  if (isnan(reading)) {
     dataPayload.erro_vec |= (1 << E_DHT);
     return 0;
   } else {
-    return dht.readTemperature();
+    return reading;
   }
 }
 
 // Reads the humidity from DHT sensor
 float readHumidity() {
-  if (isnan(dht.readHumidity())) {
+  float reading = dht.readHumidity();
+  uint32_t startHumid = millis();
+  uint32_t timeout = 2500;
+
+  while(isnan(reading) && millis() - startHumid < timeout){
+    reading = dht.readHumidity();
+  }
+  
+  if (isnan(reading)) {
     dataPayload.erro_vec |= (1 << E_DHT);
     return 0;
   } else {
-    return dht.readHumidity();
+    return reading;
   }
 }
 
@@ -153,7 +170,7 @@ float readVoltage() {
 
   // Convert the analog reading (which goes from 0 - 1023)
   // to a voltage (0 - 5V):
-  return sensorValue * 0.00487586;
+  return sensorValue * 0.00487586 + 0.7;
 }
 
 // Reads the weight of the hive
@@ -184,8 +201,6 @@ void analogRead_freeRunnig(uint8_t pin) {
   if (pin < 0 || pin > 7) {
     return;
   }
-  Serial.begin(57600);
-
   // backup of the registers
   adcsraBackup = ADCSRA;
   adcsrbBackup = ADCSRB;
@@ -268,18 +283,17 @@ bool send(T payload, uint8_t type) {
 data_t collectData() {
   // Turn on the sensors
   digitalWrite(SENSORS_PWR, HIGH);
-  delay(200);
   data_t payload;
 
   payload.erro_vec = '\0';
 
   // Performs the readings
   payload.hive = HIVE_ID;
-  payload.temperature = readTemperature();
-  payload.humidity = readHumidity();
+  payload.weight = readWeight();
   payload.voltage_h = readVoltage();
   payload.voltage_r = 0;
-  payload.weight = readWeight();
+  payload.temperature = readTemperature();
+  payload.humidity = readHumidity(); 
 
   // Turn off the sensors
   digitalWrite(SENSORS_PWR, LOW);
