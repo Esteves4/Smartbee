@@ -216,7 +216,12 @@ ISR(ADC_vect){
 
 void loop() {
 
-  if(!isFreeRunning && !sleep){
+  if(interrupted){
+    bufferADC = (bufferADC_H << 8)|bufferADC_L;
+    memory.put(strAddr, bufferADC);
+    strAddr += 2;
+    interrupted = false;
+  }else if(!isFreeRunning && !sleep){
 
     network.update();                                            // Check the network regularly
       
@@ -246,8 +251,8 @@ void loop() {
 		payload.erro_vec = '\0';
 
     lerTensao();
-		//lerDHT();
-		//lerPeso();
+		lerDHT();
+		lerPeso();
 
 		/* Turn off the sensors */
 		digitalWrite(PORTADHT, LOW);
@@ -294,11 +299,6 @@ void loop() {
     enviarSTOP();
 		
    
-	}else if(interrupted){
-		bufferADC = (bufferADC_H << 8)|bufferADC_L;
-		memory.put(strAddr, bufferADC);
-		strAddr += 2;
-		interrupted = false;
 	}else if(sleep){
 		Serial.begin(57600);                                                         
 		Serial.println(F("Sleeping..."));
@@ -435,8 +435,10 @@ bool enviarAudio() {
 }
 
 void lerPeso(){
+  scale.power_up();
+  
 	peso_lido = scale.get_units(10);
-
+  
 	if(peso_lido < 0){
 		if(peso_lido < -0.100){
 			payload.erro_vec |= (1<<E_PESO);
@@ -444,8 +446,10 @@ void lerPeso(){
 		peso_lido = 0;
 	}
 
+  scale.power_down();
+
 	Serial.begin(57600);
-	Serial.print("Weight: ");
+	Serial.print("#Weight: ");
 	Serial.print(peso_lido, 3);                                // Up to 3 decimal points
 	Serial.println(" kg");                                        // Change this to kg and re-adjust the calibration factor if you follow lbs
 	Serial.flush();
