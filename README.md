@@ -8,7 +8,6 @@ If you want to know how to assemble the sensor nodes, go [here](Nodes/sensor).
 
 If you want to know how to assemble the gateway, go [here](Nodes/gateway).
 
-[![Anurag's GitHub stats](https://github-readme-stats.vercel.app/api?username=Esteves4)](https://github.com/anuraghazra/github-readme-stats)
 
 ## License
 
